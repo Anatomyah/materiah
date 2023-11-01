@@ -24,8 +24,8 @@ SECRET_KEY = 'django-insecure--f#+)b3120qjtlj3qg*w9ls#^#!x^n(1-i!^c1ya2ur+-gsz6_
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['3.70.176.24']
-# ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = ['3.70.176.24']
+
 
 # Application definition
 
@@ -78,23 +78,23 @@ WSGI_APPLICATION = 'materiahProject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'materiah',
-        'USER': f"{os.environ.get('DB_USERNAME')}",
-        'PASSWORD': f"{os.environ.get('DB_PASSWORD')}",
-        'HOST': 'materiah.cgyfysgmccyk.eu-central-1.rds.amazonaws.com',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'materiah',
+#         'USER': f"{os.environ.get('DB_USERNAME')}",
+#         'PASSWORD': f"{os.environ.get('DB_PASSWORD')}",
+#         'HOST': 'materiah.cgyfysgmccyk.eu-central-1.rds.amazonaws.com',
+#         'PORT': '5432',
+#     }
+# }
 
 # AWS S3
 
