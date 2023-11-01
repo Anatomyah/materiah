@@ -1,0 +1,99 @@
+import json
+
+from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.serializers import serialize
+from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.decorators import action
+from rest_framework.exceptions import ParseError
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from ..models import OrderNotifications
+from ..serializers.user_serializer import UserSerializer
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny, ]
+
+    def get_permissions(self):
+        if self.action == 'create':
+            self.permission_classes = [AllowAny, ]
+        return [permission() for permission in self.permission_classes]
+
+    @action(detail=False, methods=['GET'], permission_classes=[IsAuthenticated])
+    def validate_token(self, request):
+        """
+        Validate the user's authentication token.
+        """
+        return Response({'valid': True}, status=status.HTTP_200_OK)
+
+
+class CustomObtainAuthToken(ObtainAuthToken):
+    def post(self, request, *args, **kwargs):
+        try:
+            response = super().post(request, *args, **kwargs)
+            token = Token.objects.get(key=response.data['token'])
+            user = token.user
+            user_details = {
+                'user_id': token.user.id,
+                'username': token.user.username,
+                'first_name': token.user.first_name,
+                'last_name': token.user.last_name,
+                'email': token.user.email
+            }
+
+            try:
+                profile = user.userprofile
+                user_details['phone_prefix'] = profile.phone_prefix
+                user_details['phone_suffix'] = profile.phone_suffix
+            except ObjectDoesNotExist:
+                pass
+
+            try:
+                supplier_profile = user.supplieruserprofile
+                user_details['supplier_id'] = supplier_profile.supplier.id
+                user_details['supplier_name'] = supplier_profile.supplier.name
+                user_details['supplier_phone_prefix'] = supplier_profile.supplier.phone_prefix
+                user_details['supplier_phone_suffix'] = supplier_profile.supplier.phone_suffix
+                user_details['supplier_email'] = supplier_profile.supplier.email
+                user_details['supplier_website'] = supplier_profile.supplier.website
+                user_details['phone_prefix'] = supplier_profile.contact_phone_prefix
+                user_details['phone_suffix'] = supplier_profile.contact_phone_suffix
+                user_details['is_supplier'] = True
+            except ObjectDoesNotExist:
+                pass
+
+            notifications = OrderNotifications.objects.all()
+            response_data = {
+                'token': token.key,
+                'user_details': user_details,
+            }
+
+            if notifications.exists():
+                notifications = json.loads(serialize('json', OrderNotifications.objects.all()))
+                for item in notifications:
+                    item.pop('model', None)
+                response_data['notifications'] = notifications
+
+            return Response(response_data)
+
+        except ParseError as e:
+            return Response(e.detail, status=400)
+        except Token.DoesNotExist:
+            return Response("Invalid token", status=400)
+        except Exception as e:
+            return Response(str(e), status=400)
+
+
+class LogoutAPIView(APIView):
+
+    def post(self, request):
+        request.user.auth_token.delete()
+        return Response(status=status.HTTP_200_OK)
