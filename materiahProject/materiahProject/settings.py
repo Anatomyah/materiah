@@ -88,7 +88,7 @@ WSGI_APPLICATION = 'materiahProject.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'materiah',
         'USER': f"{os.environ.get('DB_USERNAME')}",
         'PASSWORD': f"{os.environ.get('DB_PASSWORD')}",
