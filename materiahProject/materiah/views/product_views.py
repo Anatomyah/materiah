@@ -8,9 +8,9 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Product, ProductImage
-from ..permissions import ProfileTypePermission
+from materiahProject.materiah.views.permissions import ProfileTypePermission
 from ..serializers.product_serializer import ProductSerializer
-from ..serializers.s3 import create_presigned_post, delete_s3_object
+from ..serializers.s3 import delete_s3_object
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -103,7 +103,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         return_data = serializer.data
 
         if 'presigned_urls' in serializer.context:
-            print(serializer.context['presigned_urls'])
             return_data['presigned_urls'] = serializer.context['presigned_urls']
 
         return Response(return_data, status=status.HTTP_200_OK, headers=headers)

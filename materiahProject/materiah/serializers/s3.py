@@ -11,16 +11,6 @@ s3_client = boto3.client(
 )
 
 
-# def upload(local_file_path, s3_file_path, bucket_name=settings.AWS_STORAGE_BUCKET_NAME):
-#     try:
-#         s3_client.upload_file(local_file_path, bucket_name, s3_file_path)
-#         print(f"File uploaded to {s3_file_path}")
-#     except FileNotFoundError:
-#         print("The file was not found")
-#     except NoCredentialsError:
-#         print("Credentials not available")
-
-
 def create_presigned_post(object_name, file_type, bucket_name=settings.AWS_STORAGE_BUCKET_NAME,
                           expiration=3600):
     """

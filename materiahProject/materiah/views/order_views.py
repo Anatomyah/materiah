@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Order, OrderImage
-from ..permissions import DenySupplierProfile
+from materiahProject.materiah.views.permissions import DenySupplierProfile
 from ..serializers.order_serializer import OrderSerializer
 from ..serializers.s3 import delete_s3_object
 
@@ -131,7 +131,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         #         todo - add error logging
 
         if image_errors:
-            print(image_errors)
             return Response(
                 {
                     "error": "Some images were not uploaded due to a server error. Please try again."

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Supplier
-from ..permissions import DenySupplierProfile
+from materiahProject.materiah.views.permissions import DenySupplierProfile
 from ..serializers.supplier_serializer import SupplierSerializer
 
 

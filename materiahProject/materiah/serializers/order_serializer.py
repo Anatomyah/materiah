@@ -151,12 +151,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def handle_images(self, images, order_instance):
         presigned_urls_and_image_ids = []
-        counter = 0
-        print(images)
+
         for image in images:
-            counter += 1
-            print(counter)
-            print(image)
             s3_object_key = self.generate_s3_key(order_instance, image['type'])
 
             presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=image['type'])

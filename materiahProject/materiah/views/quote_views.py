@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Quote
-from ..permissions import DenySupplierProfile
+from materiahProject.materiah.views.permissions import DenySupplierProfile
 from ..serializers.quote_serializer import QuoteSerializer
 from ..serializers.s3 import delete_s3_object
 
@@ -128,7 +128,6 @@ class QuoteViewSet(viewsets.ModelViewSet):
         #         todo - add error logging
 
         if error:
-            print(error)
             return Response(
                 {
                     "error": "Unable to upload quote file due to a server error. Please try again."

@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
 
-from ..config import PHONE_PREFIX_CHOICES
+from .config import PHONE_PREFIX_CHOICES
 from .custom_validators import validate_phone_suffix
 from .supplier import Supplier
 
