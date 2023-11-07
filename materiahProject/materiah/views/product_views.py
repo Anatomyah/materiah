@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Product, ProductImage
-from materiahProject.materiah.views.permissions import ProfileTypePermission
+from .permissions import ProfileTypePermission
 from ..serializers.product_serializer import ProductSerializer
 from ..serializers.s3 import delete_s3_object
 

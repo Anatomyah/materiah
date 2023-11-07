@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Quote
-from materiahProject.materiah.views.permissions import DenySupplierProfile
+from .permissions import DenySupplierProfile
 from ..serializers.quote_serializer import QuoteSerializer
 from ..serializers.s3 import delete_s3_object
 

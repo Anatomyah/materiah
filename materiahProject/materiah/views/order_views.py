@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .paginator import MateriahPagination
 from ..models import Order, OrderImage
-from materiahProject.materiah.views.permissions import DenySupplierProfile
+from .permissions import DenySupplierProfile
 from ..serializers.order_serializer import OrderSerializer
 from ..serializers.s3 import delete_s3_object
 
