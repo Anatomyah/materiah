@@ -58,3 +58,7 @@ def delete_failed_upload_statuses():
         upload_statuses.delete()
 
     print("Finished cleaning upload statuses")
+
+
+def create_file_upload_status_test_instance():
+    new_status = FileUploadStatus.objects.create(status='pending')
