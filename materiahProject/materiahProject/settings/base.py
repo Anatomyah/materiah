@@ -145,7 +145,6 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
 # Cron tasks
 CRONJOBS = [
     ('0 0 * * *', 'materiah.cronjobs.refresh_order_notifications'),
-    # ('* * * * *', 'materiah.cronjobs.delete_failed_upload_statuses',
-    #  '>> /var/www/materiah/materiahProject/logs/cronlog.log 2>&1'),
-    ('* * * * *', 'materiah.cronjobs.create_file_upload_status_test_instance'),
+    ('* * * * *', 'materiah.cronjobs.delete_failed_upload_statuses',
+     '>> /var/www/materiah/materiahProject/logs/cronlog.log 2>&1'),
 ]

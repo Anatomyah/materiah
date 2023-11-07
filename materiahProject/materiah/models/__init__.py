@@ -4,3 +4,4 @@ from .product import Product, ProductOrderStatistics, ProductImage, OrderNotific
 from .quote import Quote, QuoteItem
 from .supplier import Supplier
 from .user import UserProfile, SupplierUserProfile
+from .file import FileUploadStatus
