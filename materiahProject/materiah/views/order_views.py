@@ -1,12 +1,15 @@
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
-from ..models import Order
+from ..models import Order, OrderImage
 from ..permissions import DenySupplierProfile
 from ..serializers.order_serializer import OrderSerializer
+from ..serializers.s3 import delete_s3_object
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -53,6 +56,33 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Order.objects.all().order_by('id')
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        order = serializer.save()
+
+        headers = self.get_success_headers(serializer.data)
+        return_data = serializer.data
+
+        if 'presigned_urls' in serializer.context:
+            return_data['presigned_urls'] = serializer.context['presigned_urls']
+
+        return Response(return_data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return_data = serializer.data
+
+        if 'presigned_urls' in serializer.context:
+            return_data['presigned_urls'] = serializer.context['presigned_urls']
+
+        return Response(return_data, status=status.HTTP_200_OK, headers=headers)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         related_quote = instance.quote
@@ -63,6 +93,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                 related_quote.status = "RECEIVED"
                 related_quote.save()
 
+            order_images = instance.orderimage_set.all()
+            if order_images:
+                for image in order_images:
+                    if delete_s3_object(object_key=image.s3_image_key):
+                        image.delete()
+
             if order_items:
                 for item in order_items:
                     product = item.quote_item.product
@@ -72,3 +108,35 @@ class OrderViewSet(viewsets.ModelViewSet):
             instance.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['POST'])
+    def update_image_upload_status(self, request):
+        upload_statuses = request.data
+        image_errors = []
+
+        for image_id, upload_status in upload_statuses.items():
+            try:
+                order_image = OrderImage.objects.get(id=image_id)
+                image_upload_status = order_image.fileuploadstatus
+
+                if upload_status == "failed":
+                    order_image.delete()
+                else:
+                    image_upload_status.delete()
+
+            except ObjectDoesNotExist:
+                image_errors.append(image_id)
+            except Exception as e:
+                pass
+        #         todo - add error logging
+
+        if image_errors:
+            print(image_errors)
+            return Response(
+                {
+                    "error": "Some images were not uploaded due to a server error. Please try again."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({"message": "Image upload statuses updated successfully"}, status=status.HTTP_200_OK)

@@ -1,9 +1,9 @@
 from django.contrib.auth.models import User
 from django.db import models
 
-from materiah.config import PHONE_PREFIX_CHOICES
-from materiah.models.custom_validators import validate_phone_suffix
-from materiah.models.supplier import Supplier
+from ..config import PHONE_PREFIX_CHOICES
+from .custom_validators import validate_phone_suffix
+from .supplier import Supplier
 
 
 class UserProfile(models.Model):

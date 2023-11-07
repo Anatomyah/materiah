@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.db import models
 
-from materiah.models.quote import Quote, QuoteItem
+from .file import FileUploadStatus
+from .quote import Quote, QuoteItem
 
 
 class Order(models.Model):
@@ -34,6 +36,11 @@ class OrderItem(models.Model):
 
 
 class OrderImage(models.Model):
-    product = models.ForeignKey(Order, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='orders/')
-    alt_text = models.CharField(max_length=255, blank=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    image_url = models.URLField(max_length=1024, editable=False, blank=True)
+    s3_image_key = models.CharField(max_length=255)
+
+    def save(self, *args, **kwargs):
+        if not self.image_url:
+            self.image_url = f'https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{self.s3_image_key}'
+        super(OrderImage, self).save(*args, **kwargs)

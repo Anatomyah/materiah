@@ -1,13 +1,13 @@
 import json
-
-from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
 from django.http import QueryDict
 from rest_framework import serializers
 
 from .product_serializer import ProductSerializer
+from .s3 import create_presigned_post, delete_s3_object
 from ..models import Supplier, Product
+from ..models.file import FileUploadStatus
 from ..models.quote import Quote, QuoteItem
 
 
@@ -44,7 +44,7 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quote
-        fields = ['id', 'quote_file', 'supplier', 'request_date', 'creation_date', 'last_updated', 'items',
+        fields = ['id', 'quote_url', 'supplier', 'request_date', 'creation_date', 'last_updated', 'items',
                   'status']
 
     @staticmethod
@@ -75,36 +75,35 @@ class QuoteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Supplier: This field is required.")
         return value
 
-    @staticmethod
-    def quote_file(value):
-        if not value:
-            raise serializers.ValidationError("Quote file: This field is required.")
-        return value
-
     @transaction.atomic
     def create(self, validated_data):
         quote_email_data = {}
         request_data = self.context.get('request').data
-        quote_file = self.context.get('request').FILES.get('quote_file')
+        quote_file_type = request_data['quote_file_type']
 
         if isinstance(request_data, QueryDict):
             request_data = self.convert_querydict_to_dict(request_data)
-            return self.create_single_quote(quote_email_data=quote_email_data, request_data=request_data,
-                                            quote_file=quote_file, manual_creation=True)
+            if quote_file_type:
+                quote_and_presigned_url = self.create_single_quote(quote_email_data=quote_email_data,
+                                                                   request_data=request_data,
+                                                                   quote_file_type=quote_file_type,
+                                                                   manual_creation=True)
+
+                self.context['presigned_url'] = quote_and_presigned_url['presigned_url']
+                return quote_and_presigned_url['quote']
+            else:
+                return self.create_single_quote(quote_email_data=quote_email_data, request_data=request_data,
+                                                manual_creation=True)
         if len(request_data.keys()) > 1:
             return self.create_multiple_quote(quote_email_data=quote_email_data, request_data=request_data)
         else:
             return self.create_single_quote(quote_email_data=quote_email_data, request_data=request_data,
-                                            quote_file=quote_file)
+                                            quote_file_type=quote_file_type)
 
     @transaction.atomic
     def update(self, instance, validated_data):
         items_data = json.loads(self.context['request'].data.get('items', '[]'))
-        quote_file = self.context['request'].FILES.get('quote_file')
-
-        if quote_file:
-            instance.quote_file.save(quote_file.name, ContentFile(quote_file.read()))
-            instance.status = 'RECEIVED'
+        quote_file_type = self.context.get('request').data.get('quote_file_type')
 
         for item_data in items_data:
             try:
@@ -121,16 +120,23 @@ class QuoteSerializer(serializers.ModelSerializer):
             product.save()
             quote_item.save()
 
-        instance.save()
+        if quote_file_type:
+            delete_s3_object(object_key=instance.s3_quote_key)
+            quote_and_presigned_url = self.update_quote_file(quote=instance, quote_file_type=quote_file_type)
+            self.context['presigned_url'] = quote_and_presigned_url['presigned_url']
 
-        return instance
+            return quote_and_presigned_url['quote']
+        else:
+            instance.save()
+
+            return instance
 
     @staticmethod
     def convert_querydict_to_dict(query_dict):
         return {
             query_dict.get('supplier', '[]'): query_dict.get('items', '[]')}
 
-    def create_single_quote(self, quote_email_data, request_data, quote_file=None, manual_creation=False):
+    def create_single_quote(self, quote_email_data, request_data, quote_file_type=None, manual_creation=False):
         supplier_id = list(request_data.keys())[0]
         items = json.loads(request_data[supplier_id])
 
@@ -155,14 +161,24 @@ class QuoteSerializer(serializers.ModelSerializer):
             quote_email_data["single_supplier_0"] = {'cat_num': f'{product.cat_num}', 'name': f'{product.name}',
                                                      'quantity': item['quantity']}
 
-        try:
-            if quote_file:
-                quote.quote_file.save(quote_file.name, ContentFile(quote_file.read()))
-        except IOError as e:
-            raise serializers.ValidationError(f"File error: {str(e)}")
-
         self.send_emails(quote_email_data)
 
+        if quote_file_type:
+            s3_object_key = self.generate_s3_key(quote, quote_file_type)
+
+            presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=quote_file_type)
+            if presigned_post_data:
+                upload_status = FileUploadStatus.objects.create(status='uploading', quote=quote)
+                quote.s3_quote_key = s3_object_key
+                quote.save()
+
+            presigned_url = {
+                'url': presigned_post_data['url'],
+                'fields': presigned_post_data['fields'],
+                'key': s3_object_key,
+            }
+            return {'quote': quote, 'presigned_url': presigned_url}
+        #     todo - validate and combine with update quote file method
         return quote
 
     def create_multiple_quote(self, quote_email_data, request_data):
@@ -205,3 +221,27 @@ class QuoteSerializer(serializers.ModelSerializer):
         subject = "הצעת מחיר"
         send_mail(subject, "", 'motdekar@gmail.com', ['anatomyah@protonmail.com'], fail_silently=False,
                   html_message=html_message)
+
+    @staticmethod
+    def generate_s3_key(quote, quote_file_type):
+        file_type = quote_file_type.split('/')[-1]
+        s3_object_key = f"quotes/supplier_{quote.supplier.name}_quote_{quote.id}.{file_type}"
+
+        return s3_object_key
+
+    def update_quote_file(self, quote, quote_file_type):
+        s3_object_key = self.generate_s3_key(quote, quote_file_type)
+
+        presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=quote_file_type)
+        if presigned_post_data:
+            upload_status = FileUploadStatus.objects.create(status='uploading', quote=quote)
+            quote.s3_quote_key = s3_object_key
+            quote.save()
+
+        presigned_url = {
+            'url': presigned_post_data['url'],
+            'fields': presigned_post_data['fields'],
+            'key': s3_object_key,
+        }
+
+        return {'quote': quote, 'presigned_url': presigned_url}

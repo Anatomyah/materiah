@@ -1,7 +1,9 @@
 from django.db import models
+from django.conf import settings
 
-from materiah.models.manufacturer import Manufacturer
-from materiah.models.supplier import Supplier
+from .file import FileUploadStatus
+from .manufacturer import Manufacturer
+from .supplier import Supplier
 
 
 class Product(models.Model):
@@ -55,8 +57,14 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='products/')
+    s3_image_key = models.CharField(max_length=255)
+    image_url = models.URLField(max_length=1024, editable=False, blank=True)
     alt_text = models.CharField(max_length=255, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.image_url:
+            self.image_url = f'https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{self.s3_image_key}'
+        super(ProductImage, self).save(*args, **kwargs)
 
 
 class ProductOrderStatistics(models.Model):

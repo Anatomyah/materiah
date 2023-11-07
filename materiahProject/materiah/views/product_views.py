@@ -1,14 +1,16 @@
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import filters
+from django.db import transaction
+from rest_framework import filters, status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
-from ..models import Product
+from ..models import Product, ProductImage
 from ..permissions import ProfileTypePermission
 from ..serializers.product_serializer import ProductSerializer
+from ..serializers.s3 import create_presigned_post, delete_s3_object
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -78,6 +80,48 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         return queryset.order_by('name')
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save()
+
+        headers = self.get_success_headers(serializer.data)
+        return_data = serializer.data
+
+        if 'presigned_urls' in serializer.context:
+            return_data['presigned_urls'] = serializer.context['presigned_urls']
+
+        return Response(return_data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return_data = serializer.data
+
+        if 'presigned_urls' in serializer.context:
+            print(serializer.context['presigned_urls'])
+            return_data['presigned_urls'] = serializer.context['presigned_urls']
+
+        return Response(return_data, status=status.HTTP_200_OK, headers=headers)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        with transaction.atomic():
+            product_images = instance.productimage_set.all()
+            if product_images:
+                for image in product_images:
+                    if delete_s3_object(object_key=image.s3_image_key):
+                        image.delete()
+
+            instance.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=False, methods=['GET'])
     def names(self, request):
         try:
@@ -91,3 +135,34 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({"error": "Supplier not found in our database"}, status=404)
         except Exception as e:
             return Response({"error": "Unable to fetch manufacturers. Please try again"}, status=500)
+
+    @action(detail=False, methods=['POST'])
+    def update_image_upload_status(self, request):
+        upload_statuses = request.data
+        image_errors = []
+
+        for image_id, upload_status in upload_statuses.items():
+            try:
+                product_image = ProductImage.objects.get(id=image_id)
+                image_upload_status = product_image.fileuploadstatus
+
+                if upload_status == "failed":
+                    product_image.delete()
+                else:
+                    image_upload_status.delete()
+
+            except ObjectDoesNotExist:
+                image_errors.append(image_id)
+            except Exception as e:
+                pass
+        #         todo - add error logging
+
+        if image_errors:
+            return Response(
+                {
+                    "error": "Some images were not uploaded due to a server error. Please try again."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({"message": "Image upload statuses updated successfully"}, status=status.HTTP_200_OK)

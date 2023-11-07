@@ -1,26 +1,21 @@
+import json
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import serializers
 
 from ..models import Manufacturer, Supplier
+from ..models.file import FileUploadStatus
 from ..models.product import Product, ProductImage
+from .s3 import create_presigned_post, delete_s3_object
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(allow_empty_file=False, use_url=True)
-
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text']
+        fields = ['id', 'image_url', 's3_image_key']
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    images_read = ProductImageSerializer(source='productimage_set', many=True, read_only=True)
-    images_write = serializers.ListField(
-        child=ProductImageSerializer(),
-        required=False,
-        write_only=True
-    )
+    images = ProductImageSerializer(source='productimage_set', many=True, read_only=True)
 
     manufacturer = serializers.SerializerMethodField()
     supplier = serializers.SerializerMethodField()
@@ -29,7 +24,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'cat_num', 'name', 'category', 'unit', 'volume', 'stock',
-            'storage', 'price', 'url', 'manufacturer', 'supplier', 'images_read', 'images_write', 'supplier_cat_item'
+            'storage', 'price', 'url', 'manufacturer', 'supplier', 'images', 'supplier_cat_item'
         ]
 
     @staticmethod
@@ -48,14 +43,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super(ProductSerializer, self).to_representation(instance)
-        representation['images'] = representation.pop('images_read', [])
+        representation['images'] = representation.pop('images', [])
         return representation
-
-    def to_internal_value(self, data):
-        internal_value = super(ProductSerializer, self).to_internal_value(data)
-        if 'images' in data:
-            internal_value['images_write'] = data.get('images')
-        return internal_value
 
     @staticmethod
     def validate_cat_num(value):
@@ -123,9 +112,14 @@ class ProductSerializer(serializers.ModelSerializer):
         product = Product.objects.create(manufacturer=manufacturer,
                                          supplier=supplier, **validated_data)
 
-        images_data = self.context.get('view').request.FILES
-        if images_data:
-            self.handle_images(images_data, product)
+        try:
+            images = json.loads(self.context.get('view').request.data.get('images') or '[]')
+        except json.JSONDecodeError:
+            images = []
+
+        if images:
+            presigned_urls = self.handle_images(images, product)
+            self.context['presigned_urls'] = presigned_urls
 
         return product
 
@@ -133,31 +127,56 @@ class ProductSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
 
-        self.check_and_delete_images(instance=instance)
+        images_to_delete = self.context.get('view').request.data.get('images_to_delete')
+        if images_to_delete:
+            self.check_and_delete_images(images_to_delete)
 
-        images_data = self.context.get('view').request.FILES
-        if images_data:
-            self.handle_images(images_data, instance)
+        try:
+            images = json.loads(self.context.get('view').request.data.get('images') or '[]')
+        except json.JSONDecodeError:
+            images = []
+
+        if images:
+            presigned_urls = self.handle_images(images, instance)
+            self.context['presigned_urls'] = presigned_urls
 
         return instance
 
-    def check_and_delete_images(self, instance):
-        images_to_keep_ids = self.context.get('view').request.data.get('images_to_keep', None)
-        images_to_keep_ids = [int(id_) for id_ in images_to_keep_ids.split(',')] if images_to_keep_ids else None
+    @staticmethod
+    def check_and_delete_images(image_ids):
+        images_to_delete_ids = [int(id_) for id_ in image_ids.split(',')]
+        for image_id in images_to_delete_ids:
+            image = ProductImage.objects.get(id=image_id)
+            if delete_s3_object(object_key=image.s3_image_key):
+                image.delete()
 
-        if images_to_keep_ids:
-            instance.productimage_set.exclude(id__in=images_to_keep_ids).delete()
+    def handle_images(self, images, product_instance):
+        presigned_urls_and_image_ids = []
 
-    def handle_images(self, images_data, product_instance):
-        try:
-            for image_data in images_data.values():
-                self.process_images(image_data, product_instance)
-        except (ValueError, OSError, AttributeError) as e:
-            raise serializers.ValidationError(f"An error occurred while processing the image: {e}")
+        for image in images:
+            s3_object_key = self.generate_s3_key(product_instance, image['type'])
+
+            presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=image['type'])
+            if presigned_post_data:
+                product_image = ProductImage.objects.create(product=product_instance, s3_image_key=s3_object_key)
+                upload_status = FileUploadStatus.objects.create(status='uploading', product_image=product_image)
+
+                presigned_urls_and_image_ids.append({
+                    'url': presigned_post_data['url'],
+                    'fields': presigned_post_data['fields'],
+                    'key': s3_object_key,
+                    'frontend_id': image['id'],
+                    'image_id': product_image.id
+                })
+            else:
+                raise serializers.ValidationError("Failed to generate presigned POST data for S3 upload.")
+
+        return presigned_urls_and_image_ids
 
     @staticmethod
-    def process_images(image_data, product_instance):
-        timestamp_str = timezone.now().strftime('%Y%m%d%H%M%S')
-        custom_file_name = f"product_{product_instance.id}_{timestamp_str}.jpg"
-        image_data.name = custom_file_name
-        ProductImage.objects.create(product=product_instance, image=image_data)
+    def generate_s3_key(product, image_type):
+        product_image_count = (product.productimage_set.count()) + 1
+        image_type = image_type.split('/')[-1]
+        s3_object_key = f"products/product_{product.id}_image_{product_image_count}.{image_type}"
+
+        return s3_object_key

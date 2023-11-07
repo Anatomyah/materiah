@@ -6,15 +6,15 @@ from rest_framework import serializers
 
 from .product_serializer import ProductSerializer
 from .quote_serializer import QuoteSerializer
+from .s3 import create_presigned_post, delete_s3_object
 from ..models import Quote, QuoteItem, OrderNotifications, ProductOrderStatistics, Product, Order, OrderItem, OrderImage
+from ..models.file import FileUploadStatus
 
 
 class OrderImageSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(allow_empty_file=False, use_url=True)
-
     class Meta:
         model = OrderImage
-        fields = ['id', 'image', 'alt_text']
+        fields = ['id', 'image_url']
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -32,29 +32,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(source='orderitem_set', many=True, required=False)
     quote = serializers.PrimaryKeyRelatedField(queryset=Quote.objects.all(), write_only=True)
-    images_read = OrderImageSerializer(source='orderimage_set', many=True, read_only=True)
-    images_write = serializers.ListField(
-        child=OrderImageSerializer(),
-        required=False,
-        write_only=True
-    )
+    images = OrderImageSerializer(source='orderimage_set', many=True, read_only=True)
 
     class Meta:
         model = Order
-        fields = ['id', 'quote', 'arrival_date', 'items', 'images_read', 'images_write', 'received_by']
+        fields = ['id', 'quote', 'arrival_date', 'items', 'images', 'received_by']
 
     def to_representation(self, instance):
         rep = super(OrderSerializer, self).to_representation(instance)
         rep['supplier'] = {'id': instance.quote.supplier.id, 'name': instance.quote.supplier.name}
         rep['quote'] = QuoteSerializer(instance.quote, context=self.context).data
-        rep['images'] = rep.pop('images_read', [])
+        rep['images'] = rep.pop('images', [])
         return rep
-
-    def to_internal_value(self, data):
-        internal_value = super(OrderSerializer, self).to_internal_value(data)
-        if 'images' in data:
-            internal_value['images_write'] = data.get('images')
-        return internal_value
 
     @staticmethod
     def validate_quote(value):
@@ -106,9 +95,14 @@ class OrderSerializer(serializers.ModelSerializer):
 
         self.is_quote_fulfilled(related_quote=related_quote, quote_fulfilled=quote_fulfilled)
 
-        images_data = self.context.get('view').request.FILES
-        self.handle_images(images_data, order)
+        try:
+            images = json.loads(self.context.get('view').request.data.get('images') or '[]')
+        except json.JSONDecodeError:
+            images = []
 
+        if images:
+            presigned_urls = self.handle_images(images, order)
+            self.context['presigned_urls'] = presigned_urls
         return order
 
     @transaction.atomic
@@ -132,34 +126,64 @@ class OrderSerializer(serializers.ModelSerializer):
 
         self.is_quote_fulfilled(related_quote=related_quote, quote_fulfilled=quote_fulfilled)
 
-        self.check_and_delete_images(instance=instance)
+        images_to_delete = self.context.get('view').request.data.get('images_to_delete')
+        if images_to_delete:
+            self.check_and_delete_images(images_to_delete)
 
-        images_data = self.context.get('view').request.FILES
-        if images_data:
-            self.handle_images(images_data, instance)
+        try:
+            images = json.loads(self.context.get('view').request.data.get('images') or '[]')
+        except json.JSONDecodeError:
+            images = []
+
+        if images:
+            presigned_urls = self.handle_images(images, instance)
+            self.context['presigned_urls'] = presigned_urls
 
         return instance
 
-    def check_and_delete_images(self, instance):
-        images_to_keep_ids = self.context.get('view').request.data.get('images_to_keep', None)
-        images_to_keep_ids = [int(id_) for id_ in images_to_keep_ids.split(',')] if images_to_keep_ids else None
+    @staticmethod
+    def check_and_delete_images(image_ids):
+        images_to_delete_ids = [int(id_) for id_ in image_ids.split(',')]
+        for image_id in images_to_delete_ids:
+            image = OrderImage.objects.get(id=image_id)
+            if delete_s3_object(object_key=image.s3_image_key):
+                image.delete()
 
-        if images_to_keep_ids:
-            instance.orderimage_set.exclude(id__in=images_to_keep_ids).delete()
+    def handle_images(self, images, order_instance):
+        presigned_urls_and_image_ids = []
+        counter = 0
+        print(images)
+        for image in images:
+            counter += 1
+            print(counter)
+            print(image)
+            s3_object_key = self.generate_s3_key(order_instance, image['type'])
 
-    def handle_images(self, images_data, order_instance):
-        try:
-            for image_data in images_data.values():
-                self.process_images(image_data, order_instance)
-        except (ValueError, OSError, AttributeError) as e:
-            raise serializers.ValidationError(f"An error occurred while processing the image: {e}")
+            presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=image['type'])
+
+            if presigned_post_data:
+                order_image = OrderImage.objects.create(order=order_instance, s3_image_key=s3_object_key)
+                upload_status = FileUploadStatus.objects.create(status='uploading', order_receipt=order_image)
+
+                presigned_urls_and_image_ids.append({
+                    'url': presigned_post_data['url'],
+                    'fields': presigned_post_data['fields'],
+                    'key': s3_object_key,
+                    'frontend_id': image['id'],
+                    'image_id': order_image.id
+                })
+            else:
+                raise serializers.ValidationError("Failed to generate presigned POST data for S3 upload.")
+
+        return presigned_urls_and_image_ids
 
     @staticmethod
-    def process_images(image_data, order_instance):
-        timestamp_str = timezone.now().strftime('%Y%m%d%H%M%S')
-        custom_file_name = f"order_{order_instance.id}_{timestamp_str}.jpg"
-        image_data.name = custom_file_name
-        OrderImage.objects.create(product=order_instance, image=image_data)
+    def generate_s3_key(order, image_type):
+        order_image_count = (order.orderimage_set.count()) + 1
+        image_type = image_type.split('/')[-1]
+        s3_object_key = f"orders/order_{order.id}_image_{order_image_count}.{image_type}"
+
+        return s3_object_key
 
     @staticmethod
     def delete_notification(product):
@@ -208,23 +232,26 @@ class OrderSerializer(serializers.ModelSerializer):
         try:
             catalogue_product = Product.objects.get(cat_num=cat_num, supplier_cat_item=True)
         except Product.DoesNotExist:
-            raise serializers.ValidationError(f"Product with CAT# {cat_num} does not exist")
+            catalogue_product = None
 
-        inventory_product, created = Product.objects.get_or_create(
-            cat_num=cat_num,
-            supplier_cat_item=False,
-            defaults={
+        defaults = {}
+        if catalogue_product:
+            defaults = {
                 'name': catalogue_product.name,
                 'category': catalogue_product.category,
                 'unit': catalogue_product.unit,
                 'volume': catalogue_product.volume,
-                'stock': 0,
                 'storage': catalogue_product.storage,
                 'price': catalogue_product.price,
                 'url': catalogue_product.url,
                 'manufacturer': catalogue_product.manufacturer,
                 'supplier': catalogue_product.supplier
             }
+
+        inventory_product, created = Product.objects.get_or_create(
+            cat_num=cat_num,
+            supplier_cat_item=False,
+            defaults=defaults
         )
 
         if created and update_stock:
@@ -236,6 +263,8 @@ class OrderSerializer(serializers.ModelSerializer):
             OrderSerializer.update_product_statistics_and_quantity_on_create(product=inventory_product,
                                                                              quantity=quantity,
                                                                              update_stock=update_stock)
+
+        return inventory_product
 
     @staticmethod
     def relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(item_data, order):

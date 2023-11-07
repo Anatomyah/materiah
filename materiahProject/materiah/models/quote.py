@@ -1,7 +1,9 @@
+from django.conf import settings
 from django.db import models
 
-from materiah.models.product import Product
-from materiah.models.supplier import Supplier
+from .file import FileUploadStatus
+from .product import Product
+from .supplier import Supplier
 
 
 class Quote(models.Model):
@@ -15,11 +17,17 @@ class Quote(models.Model):
     request_date = models.DateField(auto_now_add=True, null=True)
     creation_date = models.DateField(auto_now_add=True)
     last_updated = models.DateField(auto_now=True, null=True)
-    quote_file = models.FileField(upload_to='quotes_pdfs/', null=True, blank=True)
+    quote_url = models.URLField(max_length=1024, editable=False, blank=True)
+    s3_quote_key = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='REQUESTED')
 
     def __str__(self):
         return f"{self.id}"
+
+    def save(self, *args, **kwargs):
+        if not self.quote_url and self.s3_quote_key:
+            self.quote_url = f'https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{self.s3_quote_key}'
+        super(Quote, self).save(*args, **kwargs)
 
 
 class QuoteItem(models.Model):

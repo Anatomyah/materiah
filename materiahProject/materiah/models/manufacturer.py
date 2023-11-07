@@ -1,6 +1,6 @@
 from django.db import models
 
-from materiah.models.supplier import Supplier
+from .supplier import Supplier
 
 
 class Manufacturer(models.Model):

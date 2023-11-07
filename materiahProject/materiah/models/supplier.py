@@ -1,7 +1,7 @@
 from django.db import models
 
-from materiah.config import PHONE_PREFIX_CHOICES
-from materiah.models.custom_validators import validate_phone_suffix
+from ..config import PHONE_PREFIX_CHOICES
+from .custom_validators import validate_phone_suffix
 
 
 class Supplier(models.Model):
