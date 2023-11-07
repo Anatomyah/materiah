@@ -2,7 +2,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .models import ProductOrderStatistics, OrderNotifications
-from .models.file import FileUploadStatus, CronJobTest
+from .models.file import FileUploadStatus
 
 
 def timedelta_to_str(td):
@@ -45,10 +45,6 @@ def refresh_order_notifications():
                 avg_order_time=string_repr
             )
 
-            print(f'Created a new notification for product {product.id}')
-
-    print('Successfully recalculated and refreshed order statistics.')
-
 
 def delete_failed_upload_statuses():
     ten_minutes_ago = timezone.now() - timedelta(minutes=10)
@@ -56,7 +52,3 @@ def delete_failed_upload_statuses():
 
     if upload_statuses:
         upload_statuses.delete()
-
-    test = CronJobTest.objects.create()
-
-    print("Finished cleaning upload statuses")
