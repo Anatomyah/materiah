@@ -6,4 +6,7 @@ class MateriahConfig(AppConfig):
     name = 'materiah'
 
     def ready(self):
-        pass
+        from . import apscheduler_config
+        if not hasattr(self, 'scheduler_started'):
+            apscheduler_config.start_scheduler()
+            self.scheduler_started = True

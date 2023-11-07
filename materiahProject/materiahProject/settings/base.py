@@ -23,7 +23,6 @@ INSTALLED_APPS = [
     'django_rest_passwordreset',
     'corsheaders',
     'storages',
-    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -141,10 +140,3 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
-
-# Cron tasks
-CRONJOBS = [
-    ('0 0 * * *', 'materiah.cronjobs.refresh_order_notifications'),
-    ('* * * * *', 'materiah.cronjobs.delete_failed_upload_statuses',
-     '>> /var/www/materiah/materiahProject/logs/cronlog.log 2>&1'),
-]
