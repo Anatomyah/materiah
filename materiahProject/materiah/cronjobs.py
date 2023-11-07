@@ -2,7 +2,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .models import ProductOrderStatistics, OrderNotifications
-from .models.file import FileUploadStatus
+from .models.file import FileUploadStatus, CronJobTest
 
 
 def timedelta_to_str(td):
@@ -56,5 +56,7 @@ def delete_failed_upload_statuses():
 
     if upload_statuses:
         upload_statuses.delete()
+
+    test = CronJobTest.objects.create()
 
     print("Finished cleaning upload statuses")

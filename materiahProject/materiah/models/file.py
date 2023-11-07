@@ -17,3 +17,10 @@ class FileUploadStatus(models.Model):
 
     def __str__(self):
         return f"{self.status} - Created at: {self.created_at}"
+
+
+class CronJobTest(models.Model):
+    executed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Cron job executed at: {self.executed_at}"
