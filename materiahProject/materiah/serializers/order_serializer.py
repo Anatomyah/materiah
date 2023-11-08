@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from django.db import transaction
 from django.utils import timezone
@@ -177,7 +178,8 @@ class OrderSerializer(serializers.ModelSerializer):
     def generate_s3_key(order, image_type):
         order_image_count = (order.orderimage_set.count()) + 1
         image_type = image_type.split('/')[-1]
-        s3_object_key = f"orders/order_{order.id}_image_{order_image_count}.{image_type}"
+        unique_uuid = uuid.uuid4()
+        s3_object_key = f"orders/order_{order.id}_image_{order_image_count}_{unique_uuid}.{image_type}"
 
         return s3_object_key
 

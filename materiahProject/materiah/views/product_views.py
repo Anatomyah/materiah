@@ -81,6 +81,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset.order_by('name')
 
     def create(self, request, *args, **kwargs):
+        print(request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
@@ -165,3 +166,19 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
 
         return Response({"message": "Image upload statuses updated successfully"}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['GET'])
+    def check_cat_num(self, request):
+        try:
+            entered_cat_num = request.query_params.get('value', None)
+            exists = Product.objects.filter(cat_num=entered_cat_num, supplier_cat_item=False).exists()
+            # todo - finish this logic to make sure it's returned properly
+            if exists:
+                return Response({"unique": False, "message": "Catalog number already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Catalog number is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

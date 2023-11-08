@@ -1,4 +1,5 @@
 import json
+import uuid
 from django.db import transaction
 from rest_framework import serializers
 
@@ -96,6 +97,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        print(validated_data)
         manufacturer_id = self.context.get('view').request.data.get('manufacturer')
         supplier_id = self.context.get('view').request.data.get('supplier')
         validated_data['supplier_cat_item'] = self.context.get('view').request.data.get('supplier_cat_item') == 'true'
@@ -177,6 +179,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def generate_s3_key(product, image_type):
         product_image_count = (product.productimage_set.count()) + 1
         image_type = image_type.split('/')[-1]
-        s3_object_key = f"products/product_{product.id}_image_{product_image_count}.{image_type}"
+        unique_uuid = uuid.uuid4()
+        s3_object_key = f"products/product_{product.id}_image_{product_image_count}_{unique_uuid}.{image_type}"
 
         return s3_object_key

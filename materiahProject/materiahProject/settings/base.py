@@ -8,7 +8,7 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure--f#+)b3120qjtlj3qg*w9ls#^#!x^n(1-i!^c1ya2ur+-gsz6_')
+SECRET_KEY = 'django-insecure--f#+)b3120qjtlj3qg*w9ls#^#!x^n(1-i!^c1ya2ur+-gsz6_'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -53,6 +53,8 @@ TEMPLATES = [
         },
     },
 ]
+
+WSGI_APPLICATION = 'materiahProject.wsgi.application'
 
 # AWS S3
 
@@ -121,16 +123,15 @@ USE_I18N = True
 
 # Caches
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': f'{BASE_DIR}/django_cache',
-    }
-}
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+#         'LOCATION': f'{BASE_DIR}/django_cache',
+#     }
+# }
 
 # CORS
 
-CORS_ORIGIN_ALLOW_ALL = True
 
 # Email settings
 
