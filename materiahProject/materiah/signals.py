@@ -1,11 +1,12 @@
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created
 
-from materiah.models import Manufacturer, Supplier, Product, Order, Quote
+from .models import Manufacturer, Supplier, Product, Order, Quote
 
 
 @receiver(reset_password_token_created)
@@ -94,3 +95,12 @@ def invalidate_quote_list_cache(sender, **kwargs):
     for key in keys:
         cache.delete(key)
     cache.set('quotes_list_keys', [])
+
+
+@receiver(pre_save, sender=User)
+def ensure_unique_email_and_username(sender, instance, **kwargs):
+    if User.objects.filter(email=instance.email).exclude(id=instance.id).exists():
+        raise ValidationError("A user with that email already exists.")
+
+    if User.objects.filter(username=instance.username).exclude(id=instance.id).exists():
+        raise ValidationError("A user with that username already exists.")

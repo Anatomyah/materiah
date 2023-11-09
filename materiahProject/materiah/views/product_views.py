@@ -169,10 +169,11 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['GET'])
     def check_cat_num(self, request):
+
         try:
             entered_cat_num = request.query_params.get('value', None)
             exists = Product.objects.filter(cat_num=entered_cat_num, supplier_cat_item=False).exists()
-            # todo - finish this logic to make sure it's returned properly
+
             if exists:
                 return Response({"unique": False, "message": "Catalog number already exists"},
                                 status=status.HTTP_200_OK)
