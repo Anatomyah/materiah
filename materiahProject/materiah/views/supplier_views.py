@@ -73,3 +73,19 @@ class SupplierViewSet(viewsets.ModelViewSet):
         suppliers = Supplier.objects.values('id', 'name').order_by('name')
         ordered_formatted_suppliers = [{'value': s['id'], 'label': s['name']} for s in suppliers]
         return Response(ordered_formatted_suppliers)
+
+    @action(detail=False, methods=['GET'])
+    def check_email(self, request):
+        try:
+            entered_email = request.query_params.get('value', None)
+            print(entered_email)
+            exists = Supplier.objects.filter(email=entered_email).exists()
+            if exists:
+                return Response({"unique": False, "message": "Email already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

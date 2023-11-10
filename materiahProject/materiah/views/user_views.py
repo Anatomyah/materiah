@@ -63,6 +63,24 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET'], permission_classes=[AllowAny], authentication_classes=[],
             throttle_classes=[CheckEmailRateThrottle])
     def check_email(self, request):
+        user = request.user
+        if user:
+            print(user)
+        try:
+            entered_email = request.query_params.get('value', None)
+            exists = User.objects.filter(email=entered_email).exists()
+            if exists:
+                return Response({"unique": False, "message": "Email already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'])
+    def check_supplier_contact_email(self, request):
         try:
             entered_email = request.query_params.get('value', None)
             exists = User.objects.filter(email=entered_email).exists()
