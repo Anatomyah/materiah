@@ -14,6 +14,9 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user}"
 
+    class Meta:
+        unique_together = ('phone_prefix', 'phone_suffix')
+
 
 class SupplierUserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -24,3 +27,6 @@ class SupplierUserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user}"
+
+    class Meta:
+        unique_together = ('contact_phone_prefix', 'contact_phone_suffix')

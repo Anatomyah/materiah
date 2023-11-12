@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from rest_framework.views import APIView
 
-from ..models import OrderNotifications
+from ..models import OrderNotifications, SupplierUserProfile, UserProfile
 from ..serializers.user_serializer import UserSerializer
 
 
@@ -26,6 +26,10 @@ class CheckEmailRateThrottle(UserRateThrottle, AnonRateThrottle):
     scope = 'check_email'
 
 
+class CheckPhoneRateThrottle(UserRateThrottle, AnonRateThrottle):
+    scope = 'check_phone'
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -35,6 +39,26 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             self.permission_classes = [AllowAny, ]
         return [permission() for permission in self.permission_classes]
+
+    # def update(self, request, *args, **kwargs):
+    #     # Retrieve the instance to be updated
+    #     instance = self.get_object()
+    #     print("Instance to be updated:", instance)
+    #
+    #     # Initialize the serializer with the instance and incoming data
+    #     serializer = self.get_serializer(instance, data=request.data, partial=kwargs.pop('partial', False))
+    #     print("Serializer initialized with data:", serializer.initial_data)
+    #
+    #     # Perform validation
+    #     if serializer.is_valid():
+    #         print("Serializer validation passed")
+    #         self.perform_update(serializer)
+    #     else:
+    #         print("Serializer validation failed. Errors:", serializer.errors)
+    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    #
+    #     # Return the response
+    #     return Response(serializer.data)
 
     @action(detail=False, methods=['GET'], permission_classes=[IsAuthenticated])
     def validate_token(self, request):
@@ -48,7 +72,6 @@ class UserViewSet(viewsets.ModelViewSet):
     def check_username(self, request):
         try:
             entered_username = request.query_params.get('value', None)
-            print(entered_username)
             exists = User.objects.filter(username=entered_username).exists()
             if exists:
                 return Response({"unique": False, "message": "Username already exists"},
@@ -63,9 +86,62 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET'], permission_classes=[AllowAny], authentication_classes=[],
             throttle_classes=[CheckEmailRateThrottle])
     def check_email(self, request):
-        user = request.user
-        if user:
-            print(user)
+        try:
+            entered_email = request.query_params.get('value', None)
+            exists = User.objects.filter(email=entered_email).exists()
+            if exists:
+                return Response({"unique": False, "message": "Email already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'], permission_classes=[AllowAny], authentication_classes=[],
+            throttle_classes=[CheckPhoneRateThrottle])
+    def check_phone(self, request):
+        try:
+            entered_phone_prefix = request.query_params.get('prefix', None)
+            entered_phone_suffix = request.query_params.get('suffix', None)
+            exists_supplier_profile = SupplierUserProfile.objects.filter(
+                contact_phone_prefix=entered_phone_prefix,
+                contact_phone_suffix=entered_phone_suffix
+            ).exists()
+
+            exists_user_profile = UserProfile.objects.filter(
+                phone_prefix=entered_phone_prefix,
+                phone_suffix=entered_phone_suffix
+            ).exists()
+
+            if exists_user_profile or exists_supplier_profile:
+                return Response({"unique": False, "message": "Phone already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'])
+    def check_username_auth_required(self, request):
+        try:
+            entered_username = request.query_params.get('value', None)
+            exists = User.objects.filter(username=entered_username).exists()
+            if exists:
+                return Response({"unique": False, "message": "Username already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Username is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'])
+    def check_email_auth_required(self, request):
         try:
             entered_email = request.query_params.get('value', None)
             exists = User.objects.filter(email=entered_email).exists()
@@ -80,15 +156,25 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
-    def check_supplier_contact_email(self, request):
+    def check_phone_auth_required(self, request):
         try:
-            entered_email = request.query_params.get('value', None)
-            exists = User.objects.filter(email=entered_email).exists()
-            if exists:
-                return Response({"unique": False, "message": "Email already exists"},
+            entered_phone_prefix = request.query_params.get('prefix', None)
+            entered_phone_suffix = request.query_params.get('suffix', None)
+            exists_supplier_profile = SupplierUserProfile.objects.filter(
+                contact_phone_prefix=entered_phone_prefix,
+                contact_phone_suffix=entered_phone_suffix
+            ).exists()
+
+            exists_user_profile = UserProfile.objects.filter(
+                phone_prefix=entered_phone_prefix,
+                phone_suffix=entered_phone_suffix
+            ).exists()
+
+            if exists_user_profile or exists_supplier_profile:
+                return Response({"unique": False, "message": "Phone already exists"},
                                 status=status.HTTP_200_OK)
             else:
-                return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
+                return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
             print(e)

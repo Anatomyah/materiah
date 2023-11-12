@@ -89,3 +89,22 @@ class SupplierViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'])
+    def check_phone(self, request):
+        try:
+            entered_phone_prefix = request.query_params.get('prefix', None)
+            entered_phone_suffix = request.query_params.get('suffix', None)
+            exists = Supplier.objects.filter(
+                phone_prefix=entered_phone_prefix,
+                phone_suffix=entered_phone_suffix
+            ).exists()
+            if exists:
+                return Response({"unique": False, "message": "Phone already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

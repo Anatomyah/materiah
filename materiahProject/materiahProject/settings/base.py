@@ -91,7 +91,8 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '10000/hour',
         'check_username': '40/hour',
-        'check_email': '40/hour'
+        'check_email': '40/hour',
+        'check_phone': '40/hour',
     }
 }
 
@@ -125,15 +126,12 @@ USE_I18N = True
 
 # Caches
 
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-#         'LOCATION': f'{BASE_DIR}/django_cache',
-#     }
-# }
-
-# CORS
-
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': f'{BASE_DIR}/django_cache',
+    }
+}
 
 # Email settings
 

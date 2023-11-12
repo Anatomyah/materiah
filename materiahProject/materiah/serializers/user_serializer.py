@@ -69,6 +69,14 @@ class UserSerializer(serializers.ModelSerializer):
     supplieruserprofile = SupplierUserProfileSerializer(required=False)
     supplier_data = serializers.JSONField(required=False)
 
+    def __init__(self, *args, **kwargs):
+        super(UserSerializer, self).__init__(*args, **kwargs)
+        if self.instance:
+            self.fields['userprofile'] = UserProfileSerializer(self.instance.userprofile, required=True)
+            if hasattr(self.instance, 'supplieruserprofile'):
+                self.fields['supplieruserprofile'] = SupplierUserProfileSerializer(self.instance.supplieruserprofile,
+                                                                                   required=False)
+
     class Meta:
         model = User
         fields = ['user_id', 'username', 'email', 'first_name', 'last_name', 'password', 'userprofile',
@@ -190,4 +198,8 @@ class UserSerializer(serializers.ModelSerializer):
                 setattr(supplier, attr, value)
             supplier.save()
 
-        return super().update(instance, validated_data)
+        updated_instance = super().update(instance, validated_data)
+
+        refetched_instance = User.objects.get(id=updated_instance.id)
+
+        return refetched_instance
