@@ -79,7 +79,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
         try:
             entered_email = request.query_params.get('value', None)
             print(entered_email)
-            exists = Supplier.objects.filter(email=entered_email).exists()
+            exists = Supplier.objects.filter(email__iexact=entered_email).exists()
             if exists:
                 return Response({"unique": False, "message": "Email already exists"},
                                 status=status.HTTP_200_OK)
@@ -104,6 +104,21 @@ class SupplierViewSet(viewsets.ModelViewSet):
                                 status=status.HTTP_200_OK)
             else:
                 return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'])
+    def check_name(self, request):
+        try:
+            entered_name = request.query_params.get('name', None)
+            exists = Supplier.objects.filter(name__iexact=entered_name).exists()
+            if exists:
+                return Response({"unique": False, "message": "Name already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Name is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
             print(e)

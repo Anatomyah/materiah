@@ -1,5 +1,5 @@
 from django.core.cache import cache
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -62,3 +62,18 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
             return Response(ordered_formatted_manufacturers)
         except Exception as e:
             return Response({"error": "Unable to fetch manufacturers. Please try again later"}, status=500)
+
+    @action(detail=False, methods=['GET'])
+    def check_name(self, request):
+        try:
+            entered_name = request.query_params.get('name', None)
+            exists = Manufacturer.objects.filter(name__iexact=entered_name).exists()
+            if exists:
+                return Response({"unique": False, "message": "Name already exists"},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"unique": True, "message": "Name is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

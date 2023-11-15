@@ -43,6 +43,7 @@ class Product(models.Model):
     storage = models.CharField('storage conditions', max_length=20,
                                choices=STORAGE)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    previous_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     url = models.URLField()
     manufacturer = models.ForeignKey(to=Manufacturer, on_delete=models.CASCADE)
     supplier = models.ForeignKey(to=Supplier, on_delete=models.CASCADE)

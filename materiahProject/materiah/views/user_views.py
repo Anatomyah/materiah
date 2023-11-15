@@ -40,26 +40,6 @@ class UserViewSet(viewsets.ModelViewSet):
             self.permission_classes = [AllowAny, ]
         return [permission() for permission in self.permission_classes]
 
-    # def update(self, request, *args, **kwargs):
-    #     # Retrieve the instance to be updated
-    #     instance = self.get_object()
-    #     print("Instance to be updated:", instance)
-    #
-    #     # Initialize the serializer with the instance and incoming data
-    #     serializer = self.get_serializer(instance, data=request.data, partial=kwargs.pop('partial', False))
-    #     print("Serializer initialized with data:", serializer.initial_data)
-    #
-    #     # Perform validation
-    #     if serializer.is_valid():
-    #         print("Serializer validation passed")
-    #         self.perform_update(serializer)
-    #     else:
-    #         print("Serializer validation failed. Errors:", serializer.errors)
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    #
-    #     # Return the response
-    #     return Response(serializer.data)
-
     @action(detail=False, methods=['GET'], permission_classes=[IsAuthenticated])
     def validate_token(self, request):
         """
@@ -88,7 +68,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def check_email(self, request):
         try:
             entered_email = request.query_params.get('value', None)
-            exists = User.objects.filter(email=entered_email).exists()
+            exists = User.objects.filter(email__iexact=entered_email).exists()
             if exists:
                 return Response({"unique": False, "message": "Email already exists"},
                                 status=status.HTTP_200_OK)
@@ -144,7 +124,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def check_email_auth_required(self, request):
         try:
             entered_email = request.query_params.get('value', None)
-            exists = User.objects.filter(email=entered_email).exists()
+            exists = User.objects.filter(email__iexact=entered_email).exists()
             if exists:
                 return Response({"unique": False, "message": "Email already exists"},
                                 status=status.HTTP_200_OK)

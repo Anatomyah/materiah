@@ -3,10 +3,11 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.http import QueryDict
 from rest_framework import serializers
+from decimal import Decimal
 
 from .product_serializer import ProductSerializer
 from .s3 import create_presigned_post, delete_s3_object
-from ..models import Supplier, Product
+from ..models import Supplier, Product, Order
 from ..models.file import FileUploadStatus
 from ..models.quote import Quote, QuoteItem
 
@@ -41,11 +42,12 @@ class QuoteSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     supplier = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
+    order = serializers.SerializerMethodField()
 
     class Meta:
         model = Quote
         fields = ['id', 'quote_url', 'supplier', 'request_date', 'creation_date', 'last_updated', 'items',
-                  'status']
+                  'status', 'order']
 
     @staticmethod
     def get_supplier(obj):
@@ -74,6 +76,11 @@ class QuoteSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Supplier: This field is required.")
         return value
+
+    @staticmethod
+    def get_order(obj):
+        order = Order.objects.filter(quote=obj).first()
+        return order.id if order else None
 
     @transaction.atomic
     def create(self, validated_data):
@@ -106,19 +113,39 @@ class QuoteSerializer(serializers.ModelSerializer):
         quote_file_type = self.context.get('request').data.get('quote_file_type')
 
         for item_data in items_data:
+            price_as_decimal = Decimal(item_data['price'])
+            quantity_as_integer = int(item_data['quantity'])
+            changes = False
             try:
-                product = Product.objects.get(id=item_data.pop('product'))
-            except Product.DoesNotExist as e:
-                raise serializers.ValidationError(str(e))
-            try:
-                quote_item = QuoteItem.objects.get(quote=instance, product=product)
+                quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
             except QuoteItem.DoesNotExist as e:
                 raise serializers.ValidationError(str(e))
 
-            product.price = item_data['price']
-            quote_item.price = item_data['price']
-            product.save()
-            quote_item.save()
+            if quote_item.product_id != item_data['product']:
+                if not quote_item.price:
+                    revert = False
+                else:
+                    revert = True
+
+                self.change_product_and_revert_prices(product_id=item_data['product'], quote_item=quote_item,
+                                                      revert=revert)
+
+                if quote_item.price != price_as_decimal:
+                    self.update_price(price=price_as_decimal, product_id=item_data['product'], quote_item=quote_item,
+                                      product_changed=True)
+
+                changes = True
+            else:
+                if quote_item.price != price_as_decimal:
+                    self.update_price(price=price_as_decimal, product_id=item_data['product'], quote_item=quote_item)
+                    changes = True
+
+                if quote_item.quantity != quantity_as_integer:
+                    quote_item.quantity = quantity_as_integer
+                    changes = True
+
+            if changes:
+                quote_item.save()
 
         if quote_file_type:
             delete_s3_object(object_key=instance.s3_quote_key)
@@ -140,46 +167,35 @@ class QuoteSerializer(serializers.ModelSerializer):
         supplier_id = list(request_data.keys())[0]
         items = json.loads(request_data[supplier_id])
 
-        try:
-            supplier = Supplier.objects.get(id=supplier_id)
-        except Supplier.DoesNotExist as e:
-            raise serializers.ValidationError(str(e))
-
         if manual_creation:
-            quote = Quote.objects.create(supplier=supplier, status='RECEIVED')
+            quote = Quote.objects.create(supplier_id=supplier_id, status='RECEIVED')
         else:
-            quote = Quote.objects.create(supplier=supplier)
+            quote = Quote.objects.create(supplier_id=supplier_id)
 
         for item in items:
             product_id = item.pop('product', None)
-            try:
-                product = Product.objects.get(id=product_id)
-            except Product.DoesNotExist as e:
-                raise serializers.ValidationError(str(e))
+            cat_num, product_name = Product.objects.filter(id=product_id).values_list('cat_num', 'name').first()
+            QuoteItem.objects.create(quote=quote, product_id=product_id, **item)
 
-            QuoteItem.objects.create(quote=quote, product=product, **item)
-            quote_email_data["single_supplier_0"] = {'cat_num': f'{product.cat_num}', 'name': f'{product.name}',
+            if manual_creation:
+                try:
+                    product = Product.objects.get(id=product_id)
+                    product.previous_price = product.price
+                    product.price = item['price']
+                    product.save()
+                except Product.DoesNotExist as e:
+                    raise serializers.ValidationError(str(e))
+
+            quote_email_data["single_supplier_0"] = {'cat_num': f'{cat_num}', 'name': f'{product_name}',
                                                      'quantity': item['quantity']}
 
         self.send_emails(quote_email_data)
 
         if quote_file_type:
-            s3_object_key = self.generate_s3_key(quote, quote_file_type)
-
-            presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=quote_file_type)
-            if presigned_post_data:
-                upload_status = FileUploadStatus.objects.create(status='uploading', quote=quote)
-                quote.s3_quote_key = s3_object_key
-                quote.save()
-
-            presigned_url = {
-                'url': presigned_post_data['url'],
-                'fields': presigned_post_data['fields'],
-                'key': s3_object_key,
-            }
-            return {'quote': quote, 'presigned_url': presigned_url}
-        #     todo - validate and combine with update quote file method
-        return quote
+            quote_and_presigned_url = self.update_quote_file(quote=quote, quote_file_type=quote_file_type)
+            return quote_and_presigned_url
+        else:
+            return quote
 
     def create_multiple_quote(self, quote_email_data, request_data):
         created_quotes = []
@@ -245,3 +261,30 @@ class QuoteSerializer(serializers.ModelSerializer):
         }
 
         return {'quote': quote, 'presigned_url': presigned_url}
+
+    @staticmethod
+    def change_product_and_revert_prices(product_id, quote_item, revert):
+        if revert:
+            try:
+                wrong_product = Product.objects.get(id=quote_item.product_id)
+            except Product.DoesNotExist as e:
+                raise serializers.ValidationError(str(e))
+
+            wrong_product.price = wrong_product.previous_price
+            wrong_product.save()
+
+        quote_item.product_id = product_id
+
+    @staticmethod
+    def update_price(price, product_id, quote_item, product_changed=False):
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist as e:
+            raise serializers.ValidationError(str(e))
+
+        if product_changed:
+            product.previous_price = product.price
+        product.price = price
+        product.save()
+
+        quote_item.price = price

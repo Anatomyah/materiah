@@ -17,7 +17,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['id', 'quote__id', 'orderitem__quote_item__product__manufacturer__name']
+    search_fields = ['id', 'quote__id', 'orderitem__quote_item__product__name',
+                     'orderitem__quote_item__product__cat_num', 'quote__supplier_name']
 
     def get_permissions(self):
         if self.request.user.is_authenticated:
@@ -57,6 +58,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Order.objects.all().order_by('id')
 
     def create(self, request, *args, **kwargs):
+        print(request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save()

@@ -81,7 +81,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset.order_by('name')
 
     def create(self, request, *args, **kwargs):
-        print(request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
@@ -172,7 +171,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         try:
             entered_cat_num = request.query_params.get('value', None)
-            exists = Product.objects.filter(cat_num=entered_cat_num, supplier_cat_item=False).exists()
+            exists = Product.objects.filter(cat_num__iexact=entered_cat_num, supplier_cat_item=False).exists()
 
             if exists:
                 return Response({"unique": False, "message": "Catalog number already exists"},
