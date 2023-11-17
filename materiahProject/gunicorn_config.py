@@ -1,5 +1,5 @@
 wsgi_app = "materiahProject.wsgi:application"
-bind = "127.0.0.1:8000"
+bind = "0.0.0.0:8000"
 reload = True
 workers = 2
 pidfile = "/var/www/materiah/materiahProject/runtime/gunicorn.pid"
