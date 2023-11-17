@@ -10,7 +10,7 @@ from .paginator import MateriahPagination
 from ..models import Product, ProductImage
 from .permissions import ProfileTypePermission
 from ..serializers.product_serializer import ProductSerializer
-from ..serializers.s3 import delete_s3_object
+from ..s3 import delete_s3_object
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -18,7 +18,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'cat_num']
+    search_fields = ['name', 'cat_num', 'supplier__name', 'manufacturer__name']
 
     def get_permissions(self):
         if self.request.user.is_authenticated:
@@ -57,7 +57,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 10
+        cache_timeout = 500
         cache.set(cache_key, response.data, cache_timeout)
         cache_keys = cache.get('product_list_keys', [])
         cache_keys.append(cache_key)
@@ -131,9 +131,9 @@ class ProductViewSet(viewsets.ModelViewSet):
                                           products]
             return Response(ordered_formatted_products)
         except ObjectDoesNotExist:
-            return Response({"error": "Supplier not found in our database"}, status=404)
+            return Response({"error": "Supplier not found"}, status=404)
         except Exception as e:
-            return Response({"error": "Unable to fetch manufacturers. Please try again"}, status=500)
+            return Response({"error": str(e)}, status=500)
 
     @action(detail=False, methods=['POST'])
     def update_image_upload_status(self, request):
@@ -153,13 +153,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             except ObjectDoesNotExist:
                 image_errors.append(image_id)
             except Exception as e:
-                pass
-        #         todo - add error logging
+                image_errors.append(str(e))
 
         if image_errors:
             return Response(
                 {
-                    "error": "Some images were not uploaded due to a server error. Please try again."
+                    "errors": image_errors
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
@@ -180,5 +179,4 @@ class ProductViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Catalog number is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

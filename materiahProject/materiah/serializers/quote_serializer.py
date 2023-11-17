@@ -6,7 +6,7 @@ from rest_framework import serializers
 from decimal import Decimal
 
 from .product_serializer import ProductSerializer
-from .s3 import create_presigned_post, delete_s3_object
+from ..s3 import create_presigned_post, delete_s3_object
 from ..models import Supplier, Product, Order
 from ..models.file import FileUploadStatus
 from ..models.quote import Quote, QuoteItem
@@ -18,24 +18,6 @@ class QuoteItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuoteItem
         fields = ['id', 'quote', 'product', 'quantity', 'price']
-
-    @staticmethod
-    def validate_quote(value):
-        if not value:
-            raise serializers.ValidationError("Quote: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_product(value):
-        if not value:
-            raise serializers.ValidationError("Product: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_quantity(value):
-        if not value:
-            raise serializers.ValidationError("Quantity: This field is required.")
-        return value
 
 
 class QuoteSerializer(serializers.ModelSerializer):
@@ -71,22 +53,29 @@ class QuoteSerializer(serializers.ModelSerializer):
         else:
             return obj.get_status_display()
 
-    @staticmethod
-    def validate_supplier(value):
-        if not value:
-            raise serializers.ValidationError("Supplier: This field is required.")
-        return value
+    # @staticmethod
+    # def get_order(obj):
+    #     order = Order.objects.filter(quote=obj).first()
+    #     return order.id if order else None
 
     @staticmethod
-    def get_order(obj):
-        order = Order.objects.filter(quote=obj).first()
-        return order.id if order else None
+    def get_order(quotes):
+        order_ids = []
+        for quote in quotes:
+            order = Order.objects.filter(quote=quote).first()
+            if order:
+                order_ids.append(order.id)
+        return order_ids
 
     @transaction.atomic
     def create(self, validated_data):
         quote_email_data = {}
         request_data = self.context.get('request').data
-        quote_file_type = request_data['quote_file_type']
+        quote_file_type = None
+        try:
+            quote_file_type = request_data['quote_file_type']
+        except Exception as e:
+            pass
 
         if isinstance(request_data, QueryDict):
             request_data = self.convert_querydict_to_dict(request_data)

@@ -6,7 +6,7 @@ from rest_framework import serializers
 from ..models import Manufacturer, Supplier
 from ..models.file import FileUploadStatus
 from ..models.product import Product, ProductImage
-from .s3 import create_presigned_post, delete_s3_object
+from ..s3 import create_presigned_post, delete_s3_object
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -47,57 +47,8 @@ class ProductSerializer(serializers.ModelSerializer):
         representation['images'] = representation.pop('images', [])
         return representation
 
-    @staticmethod
-    def validate_cat_num(value):
-        if not value:
-            raise serializers.ValidationError("Product CAT #: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_name(value):
-        if not value:
-            raise serializers.ValidationError("Product name: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_category(value):
-        if not value:
-            raise serializers.ValidationError("Category: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_volume(value):
-        if not value:
-            raise serializers.ValidationError("Volume: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_storage(value):
-        if not value:
-            raise serializers.ValidationError("Storage: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_url(value):
-        if not value:
-            raise serializers.ValidationError("Product url: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_manufacturer(value):
-        if not value:
-            raise serializers.ValidationError("Manufacturer: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_supplier(value):
-        if not value:
-            raise serializers.ValidationError("Supplier: This field is required.")
-        return value
-
     @transaction.atomic
     def create(self, validated_data):
-        print(validated_data)
         manufacturer_id = self.context.get('view').request.data.get('manufacturer')
         supplier_id = self.context.get('view').request.data.get('supplier')
         validated_data['supplier_cat_item'] = self.context.get('view').request.data.get('supplier_cat_item') == 'true'

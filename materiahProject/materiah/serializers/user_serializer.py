@@ -13,53 +13,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['phone_prefix', 'phone_suffix']
 
-    @staticmethod
-    def validate_user(value):
-        if not value:
-            raise serializers.ValidationError("User: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_phone_prefix(value):
-        if not value:
-            raise serializers.ValidationError("Phone Prefix: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_phone_suffix(value):
-        if not value:
-            raise serializers.ValidationError("Phone Suffix: This field is required.")
-        return value
-
 
 class SupplierUserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupplierUserProfile
         fields = ['contact_phone_prefix', 'contact_phone_suffix']
-
-    @staticmethod
-    def validate_user(value):
-        if not value:
-            raise serializers.ValidationError("User: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_supplier(value):
-        if not value:
-            raise serializers.ValidationError("Supplier: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_contact_phone_prefix(value):
-        if not value:
-            raise serializers.ValidationError("Contact Phone Prefix: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_contact_phone_suffix(value):
-        if not value:
-            raise serializers.ValidationError("Contact Phone Suffix: This field is required.")
-        return value
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -116,36 +74,6 @@ class UserSerializer(serializers.ModelSerializer):
             internal_value['supplier_data'] = data.get('supplier_data', '')
 
         return internal_value
-
-    @staticmethod
-    def validate_username(value):
-        if not value:
-            raise serializers.ValidationError("Username: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_email(value):
-        if not value:
-            raise serializers.ValidationError("Email: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_first_name(value):
-        if not value:
-            raise serializers.ValidationError("First Name: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_last_name(value):
-        if not value:
-            raise serializers.ValidationError("Last Name: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_password(value):
-        if not value:
-            raise serializers.ValidationError("Password: This field is required.")
-        return value
 
     def create(self, validated_data):
         profile_data = validated_data.pop('userprofile', None)

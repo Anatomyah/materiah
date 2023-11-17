@@ -1,5 +1,4 @@
 from django.core.cache import cache
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
@@ -9,7 +8,7 @@ from .paginator import MateriahPagination
 from ..models import Quote
 from .permissions import DenySupplierProfile
 from ..serializers.quote_serializer import QuoteSerializer
-from ..serializers.s3 import delete_s3_object
+from ..s3 import delete_s3_object
 
 
 class QuoteViewSet(viewsets.ModelViewSet):
@@ -17,7 +16,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
     serializer_class = QuoteSerializer
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['id', 'order__id', 'supplier__name', 'quoteitem__product__manufacturer__name']
+    search_fields = ['id', 'order__id', 'supplier__name', 'quoteitem__product__manufacturer__name',
+                     'quoteitem__product__cat_num', 'quoteitem__product__name']
 
     def get_permissions(self):
         if self.request.user.is_authenticated:
@@ -29,7 +29,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             ('page_num', request.query_params.get('page_num', None)),
             ('search', request.query_params.get('search', None))
         ]
-        cache_key = f"quotes_list"
+        cache_key = f"quote_list"
 
         for param, value in params:
             if value:
@@ -45,7 +45,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 10
+        cache_timeout = 1
         cache.set(cache_key, response.data, cache_timeout)
         cache_keys = cache.get('quote_list_keys', [])
         cache_keys.append(cache_key)
@@ -101,14 +101,17 @@ class QuoteViewSet(viewsets.ModelViewSet):
             ordered_formatted_open_quotes = [
                 {'value': q['id'], 'label': f"{q['id']} - {q['creation_date']} - {q['supplier__name']}"}
                 for q in open_quotes]
-            return Response(ordered_formatted_open_quotes)
+
+            return Response(
+                {"quotes": ordered_formatted_open_quotes, "message": "Image upload statuses updated successfully"},
+                status=status.HTTP_200_OK)
+
         except Exception as e:
-            return Response({"error": "Unable to fetch quotes. Please try again later"}, status=500)
+            return Response({"error": str(e)}, status=500)
 
     @action(detail=False, methods=['POST'])
     def update_quote_upload_status(self, request):
         upload_status = request.data
-        error = None
 
         try:
             quote = Quote.objects.get(id=upload_status['quote_id'])
@@ -121,18 +124,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             else:
                 quote.delete()
 
-        except ObjectDoesNotExist as e:
-            error = e
+            return Response({"message": "Image upload statuses updated successfully"}, status=status.HTTP_200_OK)
+
         except Exception as e:
-            error = e
-        #         todo - add error logging
-
-        if error:
-            return Response(
-                {
-                    "error": "Unable to upload quote file due to a server error. Please try again."
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        return Response({"message": "Image upload statuses updated successfully"}, status=status.HTTP_200_OK)
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)

@@ -38,7 +38,7 @@ def create_presigned_post(object_name, file_type, bucket_name=settings.AWS_STORA
                                                      Conditions=conditions,
                                                      ExpiresIn=expiration)
     except ClientError as e:
-        return None
+        raise
 
     return response
 
@@ -53,8 +53,7 @@ def delete_s3_object(object_key, bucket_name=settings.AWS_STORAGE_BUCKET_NAME):
     """
     try:
         s3_client.delete_object(Bucket=bucket_name, Key=object_key)
-        return True
     except ClientError as e:
-        return False
+        raise
 
-    # todo - handle errors properly
+    return True

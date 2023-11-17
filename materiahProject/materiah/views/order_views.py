@@ -1,5 +1,5 @@
 from django.core.cache import cache
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
@@ -9,7 +9,7 @@ from .paginator import MateriahPagination
 from ..models import Order, OrderImage
 from .permissions import DenySupplierProfile
 from ..serializers.order_serializer import OrderSerializer
-from ..serializers.s3 import delete_s3_object
+from ..s3 import delete_s3_object
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -30,7 +30,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             ('page_num', request.query_params.get('page_num', None)),
             ('search', request.query_params.get('search', None))
         ]
-        cache_key = f"orders_list"
+        cache_key = f"order_list"
 
         for param, value in params:
             if value:
@@ -46,11 +46,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 10
+        cache_timeout = 500
         cache.set(cache_key, response.data, cache_timeout)
-        cache_keys = cache.get('orders_list_keys', [])
+        cache_keys = cache.get('order_list_keys', [])
         cache_keys.append(cache_key)
-        cache.set('orders_list_keys', cache_keys)
+        cache.set('order_list_keys', cache_keys)
 
         return response
 
@@ -58,7 +58,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Order.objects.all().order_by('id')
 
     def create(self, request, *args, **kwargs):
-        print(request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save()
@@ -89,25 +88,28 @@ class OrderViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         related_quote = instance.quote
         order_items = instance.orderitem_set.all()
+        try:
+            with transaction.atomic():
+                if related_quote:
+                    related_quote.status = "RECEIVED"
+                    related_quote.save()
 
-        with transaction.atomic():
-            if related_quote:
-                related_quote.status = "RECEIVED"
-                related_quote.save()
+                order_images = instance.orderimage_set.all()
+                if order_images:
+                    for image in order_images:
+                        if delete_s3_object(object_key=image.s3_image_key):
+                            image.delete()
 
-            order_images = instance.orderimage_set.all()
-            if order_images:
-                for image in order_images:
-                    if delete_s3_object(object_key=image.s3_image_key):
-                        image.delete()
+                if order_items:
+                    for item in order_items:
+                        product = item.quote_item.product
+                        product.stock -= item.quantity
+                        product.save()
 
-            if order_items:
-                for item in order_items:
-                    product = item.quote_item.product
-                    product.stock -= item.quantity
-                    product.save()
+                instance.delete()
 
-            instance.delete()
+        except Exception as e:
+            raise ValidationError(f"Error occurred: {str(e)}")
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -129,13 +131,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             except ObjectDoesNotExist:
                 image_errors.append(image_id)
             except Exception as e:
-                pass
-        #         todo - add error logging
+                image_errors.append(str(e))
 
         if image_errors:
             return Response(
                 {
-                    "error": "Some images were not uploaded due to a server error. Please try again."
+                    "errors": image_errors
                 },
                 status=status.HTTP_404_NOT_FOUND
             )

@@ -45,7 +45,11 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         Validate the user's authentication token.
         """
-        return Response({'valid': True}, status=status.HTTP_200_OK)
+        try:
+            return Response({'valid': True}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'valid': False, 'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
     @action(detail=False, methods=['GET'], permission_classes=[AllowAny], authentication_classes=[],
             throttle_classes=[UserRateThrottle])
@@ -60,7 +64,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Username is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'], permission_classes=[AllowAny], authentication_classes=[],
@@ -76,7 +79,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'], permission_classes=[AllowAny], authentication_classes=[],
@@ -102,7 +104,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
@@ -117,7 +118,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Username is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
@@ -132,7 +132,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
@@ -157,7 +156,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -221,5 +219,13 @@ class CustomObtainAuthToken(ObtainAuthToken):
 class LogoutAPIView(APIView):
 
     def post(self, request):
-        request.user.auth_token.delete()
-        return Response(status=status.HTTP_200_OK)
+        try:
+            if request.user.is_authenticated:
+                request.user.auth_token.delete()
+                return Response({"message": "Successfully logged out."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "You are not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        except Exception as e:
+            return Response({"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -40,30 +40,6 @@ class SupplierSerializer(serializers.ModelSerializer):
         qs = Product.objects.filter(supplier=obj)
         return [{'id': product.id, 'name': product.name, 'cat_num': product.cat_num} for product in qs]
 
-    @staticmethod
-    def validate_name(value):
-        if not value:
-            raise serializers.ValidationError("Supplier name: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_website(value):
-        if not value:
-            raise serializers.ValidationError("Website url: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_phone_suffix(value):
-        if not value:
-            raise serializers.ValidationError("Phone Suffix: This field is required.")
-        return value
-
-    @staticmethod
-    def validate_email(value):
-        if not value:
-            raise serializers.ValidationError("Email: This field is required.")
-        return value
-
     @transaction.atomic
     def create(self, validated_data):
         manufacturer_ids = validated_data.pop('manufacturers', [])

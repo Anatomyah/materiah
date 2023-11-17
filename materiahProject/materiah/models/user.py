@@ -5,6 +5,18 @@ from .config import PHONE_PREFIX_CHOICES
 from .custom_validators import validate_phone_suffix
 from .supplier import Supplier
 
+"""
+  Represents a user profile with additional fields linked to Django's default User model.
+
+  Attributes:
+      user (OneToOneField): A one-to-one relationship with Django's User model.
+      phone_prefix (CharField): The prefix part of the user's phone number. Choices from PHONE_PREFIX_CHOICES.
+      phone_suffix (CharField): The suffix or main part of the user's phone number. Validated by validate_phone_suffix.
+
+  Meta:
+      unique_together: Ensures that the combination of phone_prefix and phone_suffix is unique across all user profiles.
+  """
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -16,6 +28,24 @@ class UserProfile(models.Model):
 
     class Meta:
         unique_together = ('phone_prefix', 'phone_suffix')
+
+
+"""
+    Represents a supplier user profile linked to Django's default User model and the Supplier model.
+    It includes contact details specific to supplier representatives.
+
+    Attributes:
+        user (OneToOneField): A one-to-one relationship with Django's User model.
+        supplier (OneToOneField): A one-to-one relationship with the Supplier model.
+        contact_phone_prefix (CharField): The prefix part of the contact phone number. Choices from PHONE_PREFIX_CHOICES.
+            Optional.
+        contact_phone_suffix (CharField): The suffix or main part of the contact phone number.
+            Validated by validate_phone_suffix. Optional.
+
+    Meta:
+        unique_together: Ensures that the combination of contact_phone_prefix and contact_phone_suffix
+        is unique across all supplier user profiles.
+    """
 
 
 class SupplierUserProfile(models.Model):

@@ -14,7 +14,7 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
     serializer_class = ManufacturerSerializer
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'suppliers__name']
+    search_fields = ['name', 'suppliers__name', 'products__name', 'products__cat_num']
 
     def get_permissions(self):
         if self.request.user.is_authenticated:
@@ -26,7 +26,7 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
             ('page_num', request.query_params.get('page_num', None)),
             ('search', request.query_params.get('search', None))
         ]
-        cache_key = "manufacturers_list"
+        cache_key = "manufacturer_list"
 
         for param, value in params:
             if value:
@@ -42,11 +42,11 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 10
+        cache_timeout = 500
         cache.set(cache_key, response.data, cache_timeout)
-        cache_keys = cache.get('manufacturers_list_keys', [])
+        cache_keys = cache.get('manufacturer_list_keys', [])
         cache_keys.append(cache_key)
-        cache.set('manufacturers_list_keys', cache_keys)
+        cache.set('manufacturer_list_keys', cache_keys)
 
         return response
 
@@ -59,9 +59,13 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
         try:
             manufacturers = Manufacturer.objects.values('id', 'name').order_by('name')
             ordered_formatted_manufacturers = [{'value': m['id'], 'label': m['name']} for m in manufacturers]
-            return Response(ordered_formatted_manufacturers)
+
+            return Response(
+                {'manufacturer_list': ordered_formatted_manufacturers,
+                 "message": "Manufacturer List fetched successfuly"})
+
         except Exception as e:
-            return Response({"error": "Unable to fetch manufacturers. Please try again later"}, status=500)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
     def check_name(self, request):
@@ -75,5 +79,4 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Name is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

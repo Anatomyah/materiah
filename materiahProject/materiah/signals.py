@@ -43,58 +43,49 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     )
 
 
-@receiver(post_save, sender=User)
-@receiver(post_delete, sender=User)
-def invalidate_user_list_cache(sender, **kwargs):
-    keys = cache.get('user_list_keys', [])
-    for key in keys:
-        cache.delete(key)
-    cache.set('user_list_keys', [])
-
-
 @receiver(post_save, sender=Manufacturer)
 @receiver(post_delete, sender=Manufacturer)
 def invalidate_manufacturer_list_cache(sender, **kwargs):
-    keys = cache.get('manufacturers_list_keys', [])
+    keys = cache.get('manufacturer_list_keys', [])
     for key in keys:
         cache.delete(key)
-    cache.set('manufacturers_list_keys', [])
+    cache.set('manufacturer_list_keys', [])
 
 
 @receiver(post_save, sender=Supplier)
 @receiver(post_delete, sender=Supplier)
 def invalidate_supplier_list_cache(sender, **kwargs):
-    keys = cache.get('suppliers_list_keys', [])
+    keys = cache.get('supplier_list_keys', [])
     for key in keys:
         cache.delete(key)
-    cache.set('suppliers_list_keys', [])
+    cache.set('supplier_list_keys', [])
 
 
 @receiver(post_save, sender=Product)
 @receiver(post_delete, sender=Product)
 def invalidate_product_list_cache(sender, **kwargs):
-    keys = cache.get('products_list_keys', [])
+    keys = cache.get('product_list_keys', [])
     for key in keys:
         cache.delete(key)
-    cache.set('products_list_keys', [])
+    cache.set('product_list_keys', [])
 
 
 @receiver(post_save, sender=Order)
 @receiver(post_delete, sender=Order)
 def invalidate_order_list_cache(sender, **kwargs):
-    keys = cache.get('orders_list_keys', [])
+    keys = cache.get('order_list_keys', [])
     for key in keys:
         cache.delete(key)
-    cache.set('orders_list_keys', [])
+    cache.set('order_list_keys', [])
 
 
 @receiver(post_save, sender=Quote)
 @receiver(post_delete, sender=Quote)
 def invalidate_quote_list_cache(sender, **kwargs):
-    keys = cache.get('quotes_list_keys', [])
+    keys = cache.get('quote_list_keys', [])
     for key in keys:
         cache.delete(key)
-    cache.set('quotes_list_keys', [])
+    cache.set('quote_list_keys', [])
 
 
 @receiver(pre_save, sender=User)

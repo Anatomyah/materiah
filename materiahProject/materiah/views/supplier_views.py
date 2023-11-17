@@ -15,7 +15,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
     serializer_class = SupplierSerializer
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'manufacturersupplier__manufacturer__name']
+    search_fields = ['name', 'manufacturersupplier__manufacturer__name', 'products__name', 'products__cat_num']
 
     def get_permissions(self):
         if self.request.user.is_authenticated:
@@ -43,7 +43,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 10
+        cache_timeout = 500
         cache.set(cache_key, response.data, cache_timeout)
         cache_keys = cache.get('supplier_list_keys', [])
         cache_keys.append(cache_key)
@@ -70,15 +70,19 @@ class SupplierViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['GET'])
     def serve_supplier_select_list(self, request):
-        suppliers = Supplier.objects.values('id', 'name').order_by('name')
-        ordered_formatted_suppliers = [{'value': s['id'], 'label': s['name']} for s in suppliers]
-        return Response(ordered_formatted_suppliers)
+        try:
+            suppliers = Supplier.objects.values('id', 'name').order_by('name')
+            ordered_formatted_suppliers = [{'value': s['id'], 'label': s['name']} for s in suppliers]
+            return Response(
+                {"suppliers_list": ordered_formatted_suppliers, "message": 'Suppliers list fetched successfully'})
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
     def check_email(self, request):
         try:
             entered_email = request.query_params.get('value', None)
-            print(entered_email)
             exists = Supplier.objects.filter(email__iexact=entered_email).exists()
             if exists:
                 return Response({"unique": False, "message": "Email already exists"},
@@ -87,7 +91,6 @@ class SupplierViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
@@ -106,7 +109,6 @@ class SupplierViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Phone is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['GET'])
@@ -121,5 +123,4 @@ class SupplierViewSet(viewsets.ModelViewSet):
                 return Response({"unique": True, "message": "Name is available"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
