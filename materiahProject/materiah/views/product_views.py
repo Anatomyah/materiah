@@ -180,3 +180,20 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['POST'])
+    def update_stock_item(self, request):
+        try:
+            product_id = request.data.get('product_id')
+            value = request.data.get('value')
+            print(value)
+            print(type(value))
+            product = Product.objects.get(id=product_id)
+            product.stock += value
+            product.save()
+
+            return Response({"message": f"Updated product {product_id} stock successfully"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

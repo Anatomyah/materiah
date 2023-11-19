@@ -90,9 +90,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
-        'check_username': '40/hour',
-        'check_email': '40/hour',
-        'check_phone': '40/hour',
+        'check_username': '20/hour',
+        'check_email': '20/hour',
+        'check_phone': '20/hour',
     }
 }
 
@@ -123,18 +123,6 @@ USE_TZ = True
 TIME_ZONE = 'Asia/Jerusalem'
 
 USE_I18N = True
-
-# Caches
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
-    }
-}
 
 # Email settings
 

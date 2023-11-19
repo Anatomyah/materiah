@@ -53,19 +53,19 @@ class QuoteSerializer(serializers.ModelSerializer):
         else:
             return obj.get_status_display()
 
-    # @staticmethod
-    # def get_order(obj):
-    #     order = Order.objects.filter(quote=obj).first()
-    #     return order.id if order else None
-
     @staticmethod
-    def get_order(quotes):
-        order_ids = []
-        for quote in quotes:
-            order = Order.objects.filter(quote=quote).first()
-            if order:
-                order_ids.append(order.id)
-        return order_ids
+    def get_order(obj):
+
+        if isinstance(obj, Quote):
+            order = Order.objects.filter(quote=obj).first()
+            return order.id if order else None
+        else:
+            order_ids = []
+            for quote in obj:
+                order = Order.objects.filter(quote=quote).first()
+                if order:
+                    order_ids.append(order.id)
+            return order_ids
 
     @transaction.atomic
     def create(self, validated_data):
@@ -154,11 +154,12 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     def create_single_quote(self, quote_email_data, request_data, quote_file_type=None, manual_creation=False):
         supplier_id = list(request_data.keys())[0]
-        items = json.loads(request_data[supplier_id])
 
         if manual_creation:
+            items = json.loads(request_data[supplier_id])
             quote = Quote.objects.create(supplier_id=supplier_id, status='RECEIVED')
         else:
+            items = request_data[supplier_id]
             quote = Quote.objects.create(supplier_id=supplier_id)
 
         for item in items:
