@@ -1,6 +1,7 @@
 from django.core.cache import cache
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
@@ -17,7 +18,11 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'suppliers__name', 'product__name', 'product__cat_num']
 
     def get_permissions(self):
-        if self.request.user.is_authenticated:
+        if self.action == 'names':
+            # Allow any authenticated user
+            return [AllowAny()]
+        elif self.request.user.is_authenticated:
+            # Apply DenySupplierProfile for other actions
             return [DenySupplierProfile()]
         return []
 
@@ -62,7 +67,7 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {'manufacturer_list': ordered_formatted_manufacturers,
-                 "message": "Manufacturer List fetched successfuly"})
+                 "message": "Manufacturer List fetched successfully"})
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

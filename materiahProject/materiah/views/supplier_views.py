@@ -2,6 +2,7 @@ from django.core.cache import cache
 from rest_framework import status, filters
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
@@ -18,7 +19,11 @@ class SupplierViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'manufacturersupplier__manufacturer__name', 'products__name', 'products__cat_num']
 
     def get_permissions(self):
-        if self.request.user.is_authenticated:
+        if self.action == 'serve_supplier_select_list':
+            # Allow any authenticated user
+            return [AllowAny()]
+        elif self.request.user.is_authenticated:
+            # Apply DenySupplierProfile for other actions
             return [DenySupplierProfile()]
         return []
 
