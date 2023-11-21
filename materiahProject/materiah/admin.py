@@ -3,12 +3,12 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.contrib.auth.models import User
 
-from materiah.models import UserProfile, SupplierUserProfile, Product, Manufacturer, Supplier, Order, OrderItem, Quote, \
-    QuoteItem, ManufacturerSupplier
-from materiah.models.product import ProductImage
+from .models import UserProfile, SupplierUserProfile, Product, Manufacturer, Supplier, Order, OrderItem, Quote, \
+    QuoteItem, ManufacturerSupplier, ProductImage, OrderImage, OrderNotifications, ProductOrderStatistics, \
+    FileUploadStatus
 
 
-class ManufacturerSupplierInline(admin.TabularInline):  # or admin.StackedInline
+class ManufacturerSupplierInline(admin.TabularInline):
     model = ManufacturerSupplier
     extra = 0
 
@@ -88,3 +88,7 @@ admin.site.register(Order)
 admin.site.register(OrderItem, OrderItemAdmin)
 admin.site.register(Quote, QuoteAdmin)
 admin.site.register(QuoteItem)
+admin.site.register(OrderNotifications)
+admin.site.register(ProductOrderStatistics)
+admin.site.register(OrderImage)
+admin.site.register(FileUploadStatus)
