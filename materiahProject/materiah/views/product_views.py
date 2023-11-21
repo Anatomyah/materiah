@@ -69,18 +69,35 @@ class ProductViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         supplier_id_param = self.request.query_params.get('supplier_id', None)
         supplier_catalogue = self.request.query_params.get('supplier_catalogue', None)
-        print(supplier_catalogue)
+
         if self.request.is_supplier:
             supplier_profile_id = self.request.user.supplieruserprofile.supplier.id
             queryset = queryset.filter(supplier=supplier_profile_id, supplier_cat_item=True)
         if supplier_id_param:
             queryset = queryset.filter(supplier_id=supplier_id_param)
-        if supplier_catalogue:
-            queryset = queryset.filter(supplier_cat_item=True)
-        else:
-            queryset = queryset.filter(supplier_cat_item=False)
+
+        if self.action == 'list':
+            if supplier_catalogue:
+                queryset = queryset.filter(supplier_cat_item=True)
+            else:
+                queryset = queryset.filter(supplier_cat_item=False)
 
         return queryset.order_by('name')
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            print("getting")
+            instance = self.get_object()
+            # Additional custom logic here, if needed
+            print(instance)
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+
+        except ObjectDoesNotExist:
+            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(e)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

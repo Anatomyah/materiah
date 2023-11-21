@@ -46,7 +46,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 1
+        cache_timeout = 500
         cache.set(cache_key, response.data, cache_timeout)
         cache_keys = cache.get('order_list_keys', [])
         cache_keys.append(cache_key)
@@ -88,8 +88,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         related_quote = instance.quote
         order_items = instance.orderitem_set.all()
-        print(instance)
-        print(order_items)
 
         try:
             with transaction.atomic():

@@ -208,7 +208,6 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def send_email(email_data):
-        print(email_data)
         context = {'items': email_data}
         html_message = render_to_string('email_template.html', context)
 

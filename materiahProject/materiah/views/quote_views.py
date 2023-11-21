@@ -45,7 +45,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         if paginated_queryset is None or len(paginated_queryset) < self.pagination_class.page_size:
             response.data['next'] = None
 
-        cache_timeout = 1
+        cache_timeout = 500
         cache.set(cache_key, response.data, cache_timeout)
         cache_keys = cache.get('quote_list_keys', [])
         cache_keys.append(cache_key)
