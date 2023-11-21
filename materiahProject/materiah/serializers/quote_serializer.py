@@ -136,8 +136,10 @@ class QuoteSerializer(serializers.ModelSerializer):
             if changes:
                 quote_item.save()
 
-        if quote_file_type:
+        if instance.quote_url:
             delete_s3_object(object_key=instance.s3_quote_key)
+            
+        if quote_file_type:
             quote_and_presigned_url = self.update_quote_file(quote=instance, quote_file_type=quote_file_type)
             self.context['presigned_url'] = quote_and_presigned_url['presigned_url']
 
