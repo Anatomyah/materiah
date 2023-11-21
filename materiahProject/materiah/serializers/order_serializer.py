@@ -441,13 +441,15 @@ class OrderSerializer(serializers.ModelSerializer):
            This method links a QuoteItem to an OrderItem and checks if the quote is fulfilled based on the quantity
            and status of the OrderItem. It raises a validation error if the QuoteItem does not exist.
            """
+        print(item_data)
         try:
             quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
+            print(quote_item)
         except QuoteItem.DoesNotExist:
             raise serializers.ValidationError(f"Quote item with ID {item_data['quote_item_id']} does not exist")
 
         order_item = OrderItem.objects.create(order=order, quote_item=quote_item, **item_data)
-
+        print(order_item.quote_item)
         product = quote_item.product
         product.price = quote_item.price
         product.save()

@@ -2,6 +2,7 @@ import json
 from django.core.mail import send_mail
 from django.db import transaction
 from django.http import QueryDict
+from django.template.loader import render_to_string
 from rest_framework import serializers
 from decimal import Decimal
 
@@ -69,7 +70,6 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        quote_email_data = {}
         request_data = self.context.get('request').data
         quote_file_type = None
         try:
@@ -80,20 +80,20 @@ class QuoteSerializer(serializers.ModelSerializer):
         if isinstance(request_data, QueryDict):
             request_data = self.convert_querydict_to_dict(request_data)
             if quote_file_type:
-                quote_and_presigned_url = self.create_single_quote(quote_email_data=quote_email_data,
-                                                                   request_data=request_data,
-                                                                   quote_file_type=quote_file_type,
-                                                                   manual_creation=True)
+                quote_and_presigned_url = self.create_single_quote(
+                    request_data=request_data,
+                    quote_file_type=quote_file_type,
+                    manual_creation=True)
 
                 self.context['presigned_url'] = quote_and_presigned_url['presigned_url']
                 return quote_and_presigned_url['quote']
             else:
-                return self.create_single_quote(quote_email_data=quote_email_data, request_data=request_data,
+                return self.create_single_quote(request_data=request_data,
                                                 manual_creation=True)
         if len(request_data.keys()) > 1:
-            return self.create_multiple_quote(quote_email_data=quote_email_data, request_data=request_data)
+            return self.create_multiple_quote(request_data=request_data)
         else:
-            return self.create_single_quote(quote_email_data=quote_email_data, request_data=request_data,
+            return self.create_single_quote(request_data=request_data,
                                             quote_file_type=quote_file_type)
 
     @transaction.atomic
@@ -152,8 +152,9 @@ class QuoteSerializer(serializers.ModelSerializer):
         return {
             query_dict.get('supplier', '[]'): query_dict.get('items', '[]')}
 
-    def create_single_quote(self, quote_email_data, request_data, quote_file_type=None, manual_creation=False):
+    def create_single_quote(self, request_data, quote_file_type=None, manual_creation=False):
         supplier_id = list(request_data.keys())[0]
+        quote_email_data = []
 
         if manual_creation:
             items = json.loads(request_data[supplier_id])
@@ -176,10 +177,10 @@ class QuoteSerializer(serializers.ModelSerializer):
                 except Product.DoesNotExist as e:
                     raise serializers.ValidationError(str(e))
 
-            quote_email_data["single_supplier_0"] = {'cat_num': f'{cat_num}', 'name': f'{product_name}',
-                                                     'quantity': item['quantity']}
+            quote_email_data.append({'cat_num': f'{cat_num}', 'name': f'{product_name}',
+                                     'quantity': item['quantity']})
 
-        self.send_emails(quote_email_data)
+        self.send_email(quote_email_data)
 
         if quote_file_type:
             quote_and_presigned_url = self.update_quote_file(quote=quote, quote_file_type=quote_file_type)
@@ -187,45 +188,33 @@ class QuoteSerializer(serializers.ModelSerializer):
         else:
             return quote
 
-    def create_multiple_quote(self, quote_email_data, request_data):
+    def create_multiple_quote(self, request_data):
         created_quotes = []
-        for counter, (supplier_id, items) in enumerate(request_data.items(), start=1):
+
+        for (supplier_id, items) in request_data.items():
             quote = Quote.objects.create(supplier=Supplier.objects.get(id=supplier_id))
+            quote_email_data = []
             for item in items:
                 product = Product.objects.get(id=int(item['product']))
                 quote_item = QuoteItem.objects.create(quote=quote, product=product, quantity=item['quantity'])
-                quote_email_data[f"multi_supplier_{counter}"] = {'cat_num': f'{product.cat_num}',
-                                                                 'name': f'{product.name}',
-                                                                 'quantity': quote_item.quantity}
+                quote_email_data.append({'cat_num': f'{product.cat_num}',
+                                         'name': f'{product.name}',
+                                         'quantity': quote_item.quantity})
             created_quotes.append(quote)
 
-        self.send_emails(quote_email_data)
+            self.send_email(quote_email_data)
 
         return created_quotes
 
     @staticmethod
-    def send_emails(email_data):
-        html_lines = []
-        for _, item_data in email_data.items():
-            html_line = f"""
-                            <div style='text-align: right;'>שם: {item_data['name']}</div>
-                            <div style='text-align: right;'>מק\"ט: {item_data['cat_num']}</div>
-                            <div style='text-align: right;'>כמות: {item_data['quantity']}</div>
-                            """
-            html_lines.append(html_line)
-
-        joined_html_lines = ''.join(html_lines)
-
-        html_message = f"""
-                            שלום רב,
-                            נשמח להצעת מחיר לפריטים הבאים:
-                            {joined_html_lines}
-                            בברכה,
-                            מרכז האורגנואידים
-                            """
+    def send_email(email_data):
+        print(email_data)
+        context = {'items': email_data}
+        html_message = render_to_string('email_template.html', context)
 
         subject = "הצעת מחיר"
-        send_mail(subject, "", 'motdekar@gmail.com', ['anatomyah@protonmail.com'], fail_silently=False,
+        send_mail(subject, "", 'motdekar@gmail.com', ['anatomyah@protonmail.com', 'motdekar@gmail.com'],
+                  fail_silently=False,
                   html_message=html_message)
 
     @staticmethod

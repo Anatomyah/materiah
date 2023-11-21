@@ -88,6 +88,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         related_quote = instance.quote
         order_items = instance.orderitem_set.all()
+        print(instance)
+        print(order_items)
+
         try:
             with transaction.atomic():
                 if related_quote:

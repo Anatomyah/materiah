@@ -1,1 +1,1 @@
-# todo - fix Html format foe quote email
+# todo - adjust email sending func to send emails to the actual suppliers

@@ -83,6 +83,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         product = serializer.save()
 
         headers = self.get_success_headers(serializer.data)
@@ -125,11 +126,19 @@ class ProductViewSet(viewsets.ModelViewSet):
     def names(self, request):
         try:
             supplier_id = request.query_params.get('supplier_id', None)
-            products = Product.objects.filter(supplier_id=supplier_id).values('id', 'cat_num', 'name').order_by(
-                'name')
+            if supplier_id:
+                products = Product.objects.filter(supplier_id=supplier_id).values('id', 'cat_num', 'name').order_by(
+                    'name')
+
+            else:
+                products = Product.objects.all().values('id', 'cat_num', 'name').order_by(
+                    'name')
+
             ordered_formatted_products = [{'value': p['id'], 'label': f"{p['cat_num']} ({p['name']})"} for p in
                                           products]
+
             return Response(ordered_formatted_products)
+
         except ObjectDoesNotExist:
             return Response({"error": "Supplier not found"}, status=404)
         except Exception as e:
@@ -186,8 +195,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         try:
             product_id = request.data.get('product_id')
             value = request.data.get('value')
-            print(value)
-            print(type(value))
             product = Product.objects.get(id=product_id)
             product.stock += value
             product.save()
@@ -195,5 +202,4 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({"message": f"Updated product {product_id} stock successfully"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
