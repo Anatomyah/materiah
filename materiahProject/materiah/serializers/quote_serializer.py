@@ -136,10 +136,10 @@ class QuoteSerializer(serializers.ModelSerializer):
             if changes:
                 quote_item.save()
 
-        if instance.quote_url:
-            delete_s3_object(object_key=instance.s3_quote_key)
-            
         if quote_file_type:
+            if instance.quote_url:
+                delete_s3_object(object_key=instance.s3_quote_key)
+
             quote_and_presigned_url = self.update_quote_file(quote=instance, quote_file_type=quote_file_type)
             self.context['presigned_url'] = quote_and_presigned_url['presigned_url']
 
@@ -156,14 +156,22 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     def create_single_quote(self, request_data, quote_file_type=None, manual_creation=False):
         supplier_id = list(request_data.keys())[0]
+        supplier = Supplier.objects.get(id=list(request_data.keys())[0])
+        supplier_emails = [supplier.email]
         quote_email_data = []
+
+        try:
+            supplier_contact_email = supplier.supplieruserprofile.user.email
+            supplier_emails.append(supplier_contact_email)
+        except Exception:
+            pass
 
         if manual_creation:
             items = json.loads(request_data[supplier_id])
-            quote = Quote.objects.create(supplier_id=supplier_id, status='RECEIVED')
+            quote = Quote.objects.create(supplier=supplier, status='RECEIVED')
         else:
             items = request_data[supplier_id]
-            quote = Quote.objects.create(supplier_id=supplier_id)
+            quote = Quote.objects.create(supplier=supplier)
 
         for item in items:
             product_id = item.pop('product', None)
@@ -182,7 +190,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             quote_email_data.append({'cat_num': f'{cat_num}', 'name': f'{product_name}',
                                      'quantity': item['quantity']})
 
-        self.send_email(quote_email_data)
+        self.send_email(quote_email_data, supplier_emails)
 
         if quote_file_type:
             quote_and_presigned_url = self.update_quote_file(quote=quote, quote_file_type=quote_file_type)
@@ -194,8 +202,17 @@ class QuoteSerializer(serializers.ModelSerializer):
         created_quotes = []
 
         for (supplier_id, items) in request_data.items():
-            quote = Quote.objects.create(supplier=Supplier.objects.get(id=supplier_id))
+            supplier = Supplier.objects.get(id=supplier_id)
+            quote = Quote.objects.create(supplier=supplier)
+            supplier_emails = [supplier.email]
             quote_email_data = []
+
+            try:
+                supplier_contact_email = supplier.supplieruserprofile.user.email
+                supplier_emails.append(supplier_contact_email)
+            except Exception:
+                pass
+
             for item in items:
                 product = Product.objects.get(id=int(item['product']))
                 quote_item = QuoteItem.objects.create(quote=quote, product=product, quantity=item['quantity'])
@@ -204,17 +221,17 @@ class QuoteSerializer(serializers.ModelSerializer):
                                          'quantity': quote_item.quantity})
             created_quotes.append(quote)
 
-            self.send_email(quote_email_data)
+            self.send_email(quote_email_data, supplier_emails)
 
         return created_quotes
 
     @staticmethod
-    def send_email(email_data):
+    def send_email(email_data, supplier_emails):
         context = {'items': email_data}
         html_message = render_to_string('email_template.html', context)
 
         subject = "הצעת מחיר"
-        send_mail(subject, "", 'motdekar@gmail.com', ['anatomyah@protonmail.com', 'motdekar@gmail.com'],
+        send_mail(subject, "", 'motdekar@gmail.com', supplier_emails,
                   fail_silently=False,
                   html_message=html_message)
 
