@@ -2,6 +2,7 @@ import json
 import uuid
 
 from django.db import transaction
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -297,8 +298,8 @@ class OrderSerializer(serializers.ModelSerializer):
         order_image_count = (order.orderimage_set.count()) + 1
         image_type = image_type.split('/')[-1]
         unique_uuid = uuid.uuid4()
-        s3_object_key = f"orders/order_{order.id}_image_{order_image_count}_{unique_uuid}.{image_type}"
-
+        folder_name = 'organoids/' if settings.APP_MODE == 'actual' else ""
+        s3_object_key = f"{folder_name}orders/order_{order.id}_image_{order_image_count}_{unique_uuid}.{image_type}"
         return s3_object_key
 
     @staticmethod

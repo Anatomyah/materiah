@@ -33,3 +33,5 @@ CACHES = {
         }
     }
 }
+
+APP_MODE = 'actual'

@@ -19,3 +19,5 @@ CORS_ORIGIN_ALLOW_ALL = True
 #     'http://127.0.0.1:3000',
 #     'http://localhost:3000',
 # ]
+
+APP_MODE = 'development'
