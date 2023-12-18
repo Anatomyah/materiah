@@ -12,40 +12,39 @@ from ..s3 import create_presigned_post, delete_s3_object
 from ..models import Quote, QuoteItem, OrderNotifications, ProductOrderStatistics, Product, Order, OrderItem, OrderImage
 from ..models.file import FileUploadStatus
 
-"""
-    Serializer for the OrderImage model. This serializer handles the serialization
-    and deserialization of OrderImage instances.
-
-    Meta:
-        model: The OrderImage model that is being serialized.
-        fields: Specifies the 'id' and 'image_url' fields to include in the serialized output.
-    """
-
 
 class OrderImageSerializer(serializers.ModelSerializer):
+    """
+        Serializer for the OrderImage model. This serializer handles the serialization
+        and deserialization of OrderImage instances.
+
+        Meta:
+            model: The OrderImage model that is being serialized.
+            fields: Specifies the 'id' and 'image_url' fields to include in the serialized output.
+        """
+
     class Meta:
         model = OrderImage
         fields = ['id', 'image_url']
 
 
-"""
-    Serializer for the OrderItem model. It handles serialization and deserialization
-    of OrderItem instances, including custom representation of related models.
-
-    In the to_representation method, it adds a serialized representation of related
-    Product and specific details of the QuoteItem associated with the OrderItem.
-
-    Meta:
-        model: The OrderItem model that is being serialized.
-        fields: Specifies fields to include in the serialized output.
-
-    Methods:
-        to_representation: Overrides the default method to add 'product' and 'quote_item'
-        information to the serialized representation.
-    """
-
-
 class OrderItemSerializer(serializers.ModelSerializer):
+    """
+        Serializer for the OrderItem model. It handles serialization and deserialization
+        of OrderItem instances, including custom representation of related models.
+
+        In the to_representation method, it adds a serialized representation of related
+        Product and specific details of the QuoteItem associated with the OrderItem.
+
+        Meta:
+            model: The OrderItem model that is being serialized.
+            fields: Specifies fields to include in the serialized output.
+
+        Methods:
+            to_representation: Overrides the default method to add 'product' and 'quote_item'
+            information to the serialized representation.
+        """
+
     class Meta:
         model = OrderItem
         fields = ['order', 'quantity', 'batch', 'expiry', 'status', 'issue_detail']
@@ -70,26 +69,24 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return rep
 
 
-"""
-Serializer for the Order model. This serializer handles serialization and deserialization
-of Order instances, including nested representations of order items and images.
-
-Attributes:
-    items (OrderItemSerializer): A nested serializer for order items, linked via the 'orderitem_set' relation.
-    quote (PrimaryKeyRelatedField): A field representing the quote associated with the order. Write-only.
-    images (OrderImageSerializer): A nested read-only serializer for order images, linked via the 'orderimage_set' relation.
-
-Meta:
-    model: The Order model that is being serialized.
-    fields: Specifies fields to include in the serialized output.
-
-Methods:
-    to_representation: Overrides the default method to add additional data,
-                        including supplier info and serialized quote.
-"""
-
-
 class OrderSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Order model. This serializer handles serialization and deserialization
+    of Order instances, including nested representations of order items and images.
+
+    Attributes:
+        items (OrderItemSerializer): A nested serializer for order items, linked via the 'orderitem_set' relation.
+        quote (PrimaryKeyRelatedField): A field representing the quote associated with the order. Write-only.
+        images (OrderImageSerializer): A nested read-only serializer for order images, linked via the 'orderimage_set' relation.
+
+    Meta:
+        model: The Order model that is being serialized.
+        fields: Specifies fields to include in the serialized output.
+
+    Methods:
+        to_representation: Overrides the default method to add additional data,
+                            including supplier info and serialized quote.
+    """
     items = OrderItemSerializer(source='orderitem_set', many=True, required=False)
     quote = serializers.PrimaryKeyRelatedField(queryset=Quote.objects.all(), write_only=True)
     images = OrderImageSerializer(source='orderimage_set', many=True, read_only=True)
@@ -137,39 +134,58 @@ class OrderSerializer(serializers.ModelSerializer):
             json.JSONDecodeError: If there is an error in parsing the JSON data for items or images.
         """
 
+        # Fetching the request context
         request = self.context.get('request', None)
+
+        # Extracting the items from the request data and parsing it into JSON
         items_data = json.loads(request.data.get('items', '[]'))
 
+        # Extracting quote related data
         related_quote = validated_data.pop('quote')
+
+        # Create the order instance
         order = Order.objects.create(quote=related_quote, **validated_data)
+
+        # Initially setting the flag for entire quote fulfillment as True
         quote_fulfilled = True
 
+        # Iterate over each line item in the order
         for item_data in items_data:
+            # Check the item status and update the item quantity in inventory
             status = item_data['status'] == 'OK' or 'Different amount'
             product_cat_num = item_data.pop('cat_num')
 
+            # Depending on whether the status is OK, either create a new item in the inventory (if it does not
+            # exist) or update the quantity of the existing item in the inventory
             self.create_inventory_product_or_update_statistics_and_quantity(cat_num=product_cat_num,
                                                                             quantity=item_data['quantity'],
                                                                             update_stock=status)
 
+            # Create a new order item and associate it with the quote item. Check if the quote item is fulfilled
             quote_item_fulfilled = self.relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(
                 item_data=item_data,
                 order=order)
 
+            # If not all quote items are fulfilled, mark the entire quote as not fulfilled
             if not quote_item_fulfilled and quote_fulfilled:
                 quote_fulfilled = False
 
+        # Mark the quote as fulfilled if all associated items are fulfilled
         self.is_quote_fulfilled(related_quote=related_quote, quote_fulfilled=quote_fulfilled)
 
         try:
+            # Extract Images from the request and parse to JSON if any exist
             images = json.loads(self.context.get('view').request.data.get('images') or '[]')
         except json.JSONDecodeError:
+            # If JSON parsing fails, make the images list empty
             images = []
 
+        # If images exist, process them and generate pre-signed URLs
         if images:
             presigned_urls = self.handle_images(images, order)
             self.context['presigned_urls'] = presigned_urls
 
+        # Return the newly created order
         return order
 
     @transaction.atomic
@@ -194,34 +210,40 @@ class OrderSerializer(serializers.ModelSerializer):
         request = self.context.get('request', None)
         items_data = json.loads(request.data.get('items', '[]'))
 
+        # Update basic order details
         instance.arrival_date = validated_data.get('arrival_date', instance.arrival_date)
         instance.received_by = validated_data.get('received_by', instance.received_by)
 
+        # Link order to its related quote
         related_quote = validated_data.pop('quote')
         instance.quote = related_quote
         quote_fulfilled = True
 
+        # Check each item for fulfillment
         for item_data in items_data:
             quote_item_fulfilled = self.relate_quoteitem_to_orderitem_and_check_quote_fulfillment_update(
                 item_data=item_data, instance=instance)
 
+            # If any item not fulfilled, mark entire quote as not fulfilled
             if not quote_item_fulfilled and quote_fulfilled:
                 quote_fulfilled = False
 
+        # Reflect quote fulfillment status
         self.is_quote_fulfilled(related_quote=related_quote, quote_fulfilled=quote_fulfilled)
 
+        # Delete images if requested
         images_to_delete = self.context.get('view').request.data.get('images_to_delete')
         if images_to_delete:
             self.check_and_delete_images(images_to_delete)
 
+        # If there are new images, process them and generate URLs
         try:
             images = json.loads(self.context.get('view').request.data.get('images') or '[]')
         except json.JSONDecodeError:
             images = []
-
-        if images:
-            presigned_urls = self.handle_images(images, instance)
-            self.context['presigned_urls'] = presigned_urls
+        if images:  # Check if any new images are present
+            presigned_urls = self.handle_images(images, instance)  # Generate URLs for new images
+            self.context['presigned_urls'] = presigned_urls  # Store the URLs in context for further use
 
         return instance
 
@@ -236,9 +258,16 @@ class OrderSerializer(serializers.ModelSerializer):
             This method parses the image_ids string to get individual image IDs, retrieves each OrderImage instance,
             and deletes the image from S3. If the deletion from S3 is successful, the OrderImage instance is also deleted.
             """
+        # Splitting the comma-separated string of image ids and converting them to integers
         images_to_delete_ids = [int(id_) for id_ in image_ids.split(',')]
+
+        # Iterating over each image id to be deleted
         for image_id in images_to_delete_ids:
+            # Retrieving the OrderImage instance by its id
             image = OrderImage.objects.get(id=image_id)
+
+            # If the function `delete_s3_object` successfully deletes the image from S3,
+            # then the corresponding OrderImage instance is also deleted.
             if delete_s3_object(object_key=image.s3_image_key):
                 image.delete()
 
@@ -257,17 +286,23 @@ class OrderSerializer(serializers.ModelSerializer):
            and creates an OrderImage instance and a FileUploadStatus instance for each image. It returns data
            necessary for the frontend to complete the upload process.
            """
-        presigned_urls_and_image_ids = []
+        presigned_urls_and_image_ids = []  # Holds information about each image
 
         for image in images:
+            # Generate a unique key for storing the image in S3
             s3_object_key = self.generate_s3_key(order_instance, image['type'])
 
+            # Generate presigned POST data for secure S3 upload
             presigned_post_data = create_presigned_post(object_name=s3_object_key, file_type=image['type'])
 
             if presigned_post_data:
+                # If presigned POST data is successfully generated, create an OrderImage instance
                 order_image = OrderImage.objects.create(order=order_instance, s3_image_key=s3_object_key)
+
+                # Also create a FileUploadStatus instance with status initially set as 'uploading'
                 upload_status = FileUploadStatus.objects.create(status='uploading', order_receipt=order_image)
 
+                # Append necessary data for frontend to complete upload process to the list
                 presigned_urls_and_image_ids.append({
                     'url': presigned_post_data['url'],
                     'fields': presigned_post_data['fields'],
@@ -276,9 +311,10 @@ class OrderSerializer(serializers.ModelSerializer):
                     'image_id': order_image.id
                 })
             else:
+                # If failed to generate presigned POST data, raise a validation error
                 raise serializers.ValidationError("Failed to generate presigned POST data for S3 upload.")
 
-        return presigned_urls_and_image_ids
+        return presigned_urls_and_image_ids  # Return the data for all images
 
     @staticmethod
     def generate_s3_key(order, image_type):
@@ -295,11 +331,22 @@ class OrderSerializer(serializers.ModelSerializer):
             This method generates a unique S3 key for an order image, using the order ID, image count,
             a unique UUID, and the image type.
             """
+        # Count the number of existing images for this order and increment it by one.
         order_image_count = (order.orderimage_set.count()) + 1
+
+        # Parse the image type to obtain only the format (jpg, png, etc.)
         image_type = image_type.split('/')[-1]
+
+        # Generate a unique UUID
         unique_uuid = uuid.uuid4()
+
+        # Define the folder name depending on the current app mode
         folder_name = 'organoids/' if settings.APP_MODE == 'actual' else ""
+
+        # Use string formatting to construct the S3 object key using the folder name, order id, image count, unique UUID, and image type.
         s3_object_key = f"{folder_name}orders/order_{order.id}_image_{order_image_count}_{unique_uuid}.{image_type}"
+
+        # Return the constructed unique S3 key
         return s3_object_key
 
     @staticmethod
@@ -333,14 +380,18 @@ class OrderSerializer(serializers.ModelSerializer):
            for a product based on the new order. It creates a new ProductOrderStatistics instance if it does not exist.
            """
         try:
+            # Attempt to get the ProductOrderStatistics instance for the product
             product_statistics = product.productorderstatistics
         except ProductOrderStatistics.DoesNotExist:
+            # If it does not exist, create a new instance
             product_statistics = ProductOrderStatistics.objects.create(product=product)
 
+        # Increment the order count for the product
         product_statistics.order_count += 1
         updated_order_count = product_statistics.order_count
         current_time = timezone.now()
 
+        # If more than one order has been made, update the average order time
         if updated_order_count > 1:
             new_delta = current_time - product_statistics.last_ordered
             prev_avg = product_statistics.avg_order_time if updated_order_count > 2 else new_delta
@@ -348,12 +399,15 @@ class OrderSerializer(serializers.ModelSerializer):
             product_statistics.avg_order_time = new_avg
             product_statistics.last_ordered = current_time
         else:
+            # If it's the first order, simply update the last_ordered timestamp
             product_statistics.last_ordered = current_time
 
+        # If the stock needs to be updated (flag update_stock is true), increase it with the ordered quantity
         if update_stock:
             product.stock += int(quantity)
             product.save()
 
+        # Save the updated statistics
         product_statistics.save()
 
     @staticmethod
@@ -391,12 +445,16 @@ class OrderSerializer(serializers.ModelSerializer):
            or updates the existing one with the same catalog number. It also updates the product's statistics and quantity.
            """
         try:
+            # Attempt to get a catalogue product with the given catalogue number
             catalogue_product = Product.objects.get(cat_num=cat_num, supplier_cat_item=True)
         except Product.DoesNotExist:
+            # If the catalogue product does not exist, set it to None
             catalogue_product = None
 
         defaults = {}
         if catalogue_product:
+            # If catalogue product exists, set the default fields for the new/existing inventory product
+            # These fields will be used if a new product is being created.
             defaults = {
                 'name': catalogue_product.name,
                 'category': catalogue_product.category,
@@ -409,22 +467,28 @@ class OrderSerializer(serializers.ModelSerializer):
                 'supplier': catalogue_product.supplier
             }
 
+        # Attempt to get an inventory product with the given catalog number, create one if it does not exist.
         inventory_product, created = Product.objects.get_or_create(
             cat_num=cat_num,
             supplier_cat_item=False,
             defaults=defaults
         )
 
+        # If a new inventory product was created and the stock needs to be updated,
+        # set the product's stock to the ordered quantity
         if created and update_stock:
             inventory_product.stock = quantity
             inventory_product.save()
 
+        # If an existing inventory product was updated, delete the associated notification
+        # and update the product's statistics and stock
         if not created:
             OrderSerializer.delete_notification(inventory_product)
             OrderSerializer.update_product_statistics_and_quantity_on_create(product=inventory_product,
                                                                              quantity=quantity,
                                                                              update_stock=update_stock)
 
+        # Finally, return the inventory product (either the newly created one or the updated existing one)
         return inventory_product
 
     @staticmethod
@@ -443,52 +507,97 @@ class OrderSerializer(serializers.ModelSerializer):
            and status of the OrderItem. It raises a validation error if the QuoteItem does not exist.
            """
         try:
+            # Attempt to get the quote item with the given id from the item data
             quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
         except QuoteItem.DoesNotExist:
+            # If the quote item does not exist, raise a validation error
             raise serializers.ValidationError(f"Quote item with ID {item_data['quote_item_id']} does not exist")
 
+        # Create a new order item and associate it with the fetched quote item
         order_item = OrderItem.objects.create(order=order, quote_item=quote_item, **item_data)
+
+        # Update the price of the product in the quote item to match the price in the order item
         product = quote_item.product
         product.price = quote_item.price
         product.save()
 
+        # Check if the quote is fulfilled:
+        # If the quantity of the order item does not match the quantity of the quote item,
+        # or if the status of the order item is not 'OK', the quote is not fulfilled. Return False.
         if quote_item.quantity != order_item.quantity or order_item.status != 'OK':
             return False
 
+        # If all checks passed, the quote is fulfilled. Return True.
         return True
 
     @staticmethod
     def relate_quoteitem_to_orderitem_and_check_quote_fulfillment_update(item_data, instance):
+        """
+           This method relates a quote item to an order item, checks whether the quote is fulfilled and updates the product stock upon order update.
+
+           Args:
+               item_data (dict): A dictionary containing data about the order item.
+               instance (Order): The order instance associated with the order item.
+
+           Returns:
+               bool: Returns True if the quote is fulfilled, otherwise False.
+
+           Raises:
+        serializers.ValidationError: Raised if the quote item does not exist.
+           """
+
+        # Set the status based on the 'status' key from the 'item_data' dictionary.
         status = item_data['status'] == 'OK' or 'Different amount'
 
         try:
+            # Try to refer to the quote item using the id from the 'item_data' dictionary.
             quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
         except QuoteItem.DoesNotExist:
+            # If the attempt to get the quote item raise a DoesNotExist exception, throw a validation error.
             raise serializers.ValidationError(f"Quote item with ID {item_data['quote_item_id']} does not exist")
 
+        # Get the order item using an instance of an order and the previously defined quote item.
         order_item = OrderItem.objects.get(order=instance, quote_item=quote_item)
 
+        # Iter over items in the 'item_data' dictionary
         for field_name, new_value in item_data.items():
+            # For each item, update corresponding attribute of the order item.
             setattr(order_item, field_name, new_value)
 
+        # Save the updated order item.
         order_item.save()
 
+        # Get the product from the quote item.
         product = quote_item.product
 
+        # If status is met, update product stock upon order update.
         if status:
             OrderSerializer.update_product_stock_on_update(product=product, new_quantity=item_data['quantity'],
                                                            quote_item_quantity=quote_item.quantity)
 
+        # Check if the quantity in quote item differs from quantity in order item or if status of the order item isn't 'OK'.
+        # If any of these conditions is True, return False, which means the quote is not fulfilled.
         if quote_item.quantity != order_item.quantity or order_item.status != 'OK':
             return False
 
+        # If non of the conditions is met, return True, which means the quote is fulfilled.
         return True
 
     @staticmethod
     def is_quote_fulfilled(related_quote, quote_fulfilled):
+        """
+           This method checks if the associated quote is fulfilled and updates its status.
+
+           Args:
+               related_quote (Quote): The quote associated with the order.
+               quote_fulfilled (bool): Status indicating whether the quote is fulfilled.
+
+           The method takes a quote and a boolean indicating whether the quote is
+           fulfilled. It updates the status of the quote to "ARRIVED, UNFULFILLED" if
+           the quote is not fulfilled and to "FULFILLED" if the quote is fulfilled.
+           """
         if not quote_fulfilled:
             related_quote.status = "ARRIVED, UNFULFILLED"
         else:
             related_quote.status = "FULFILLED"
-
         related_quote.save()
