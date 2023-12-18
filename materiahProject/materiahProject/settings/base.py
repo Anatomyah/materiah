@@ -56,10 +56,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'materiahProject.wsgi.application'
 
-# AWS S3
+# AWS ACCESS KEY
 
 AWS_ACCESS_KEY_ID = os.environ.get('S3_ACCESS_ID')
 AWS_SECRET_ACCESS_KEY = os.environ.get('S3_SECRET_KEY')
+
+# AWS S3
+
 AWS_STORAGE_BUCKET_NAME = 'materiah1'
 AWS_S3_REGION_NAME = 'eu-central-1'
 AWS_DEFAULT_ACL = 'public-read'
@@ -132,3 +135,11 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
+
+# Amazon SES Email Configuration
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'email-smtp.eu-central-1.amazonaws.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'AKIASP27XK574ZIRXUNI'
+# EMAIL_HOST_PASSWORD = 'BMWB4yoGddnOscM0kKmGg5SVde6/KNSofBAGDEPpYrFz'
