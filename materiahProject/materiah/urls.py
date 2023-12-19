@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import product_views, manufacturer_views, supplier_views, user_views, order_views, quote_views
 from .views.user_views import CustomObtainAuthToken
 
+# Viewsets registration
 router = DefaultRouter()
 router.register(r'products', product_views.ProductViewSet, basename='product')
 router.register(r'manufacturers', manufacturer_views.ManufacturerViewSet, basename='manufacturer')
@@ -12,6 +13,7 @@ router.register(r'users', user_views.UserViewSet, basename='user')
 router.register(r'orders', order_views.OrderViewSet, basename='order')
 router.register(r'quotes', quote_views.QuoteViewSet, basename='quotes')
 
+# Custom Views registrations
 urlpatterns = [
     path('', include(router.urls)),
     path('api-token-auth/', CustomObtainAuthToken.as_view(), name='api_token_auth'),

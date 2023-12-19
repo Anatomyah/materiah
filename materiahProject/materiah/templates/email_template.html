@@ -13,28 +13,28 @@
 <body>
 <div dir="rtl" style='text-align: right; font-size: 16px;' class="uniform-color">
     <div class="uniform-color">
-        שלום רב,
+        שלום רב,   <!-- Text greeting -->
     </div>
     <div class="uniform-color">
-        נשמח להצעת מחיר לפריטים הבאים:
+        נשמח להצעת מחיר לפריטים הבאים:  <!-- Text introducing the list of items -->
     </div>
     <br>
-    {% for item in items %}
-        <div class="uniform-color">שם: {{ item.name }}</div>
-        <div class="uniform-color">מק"ט: {{ item.cat_num }}</div>
-        <div class="uniform-color">כמות: {{ item.quantity }}</div>
+    {% for item in items %} <!-- Begin loop through each item in the provided 'items' list -->
+        <div class="uniform-color">שם: {{ item.name }}</div> <!-- Display the name of the item -->
+        <div class="uniform-color">מק"ט: {{ item.cat_num }}</div> <!-- Display the catalog number of the item -->
+        <div class="uniform-color">כמות: {{ item.quantity }}</div> <!-- Display the quantity of the item -->
         <br>
-    {% endfor %}
+    {% endfor %} <!-- End loop through items -->
     <br>
-    <div class="uniform-color">בברכה,</div>
-    <div class="uniform-color">מרכז האורגנואידים</div>
+    <div class="uniform-color">בברכה,</div> <!-- Closing salutation -->
+    <div class="uniform-color">מרכז האורגנואידים</div> <!-- Author signoff -->
 </div>
 <br>
 <br>
 <div dir="rtl" style='text-align: right; display: flex; flex-direction: row;' class="uniform-color">
     <img src="https://materiah1.s3.eu-central-1.amazonaws.com/design/materiah_logo.png" alt="Description"
-         style="width: 20%; height: auto;">
-    <p class="uniform-color">Sent via </p>
+         style="width: 20%; height: auto;"> <!-- Company logo image -->
+    <p class="uniform-color">Sent via </p> <!-- Text indicating the method of delivery -->
 </div>
 </body>
 </html>
