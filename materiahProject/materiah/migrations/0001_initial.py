@@ -81,8 +81,7 @@ class Migration(migrations.Migration):
             name='UserProfile',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('id_number', models.CharField(max_length=9, unique=True, validators=[
-                    materiah.models.custom_validators.validate_digits_length_and_luhn])),
+                ('id_number', models.CharField(max_length=9, unique=True)),
                 ('phone',
                  models.CharField(max_length=10, validators=[materiah.models.custom_validators.validate_phone_suffix])),
                 (

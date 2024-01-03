@@ -335,13 +335,14 @@ class ProductViewSet(viewsets.ModelViewSet):
         try:
             # Check if a supplier's id is provided
             supplier_id = request.query_params.get('supplier_id', None)
-            # If a supplier's id is provided, get products for that supplier
+            # If a supplier's id is provided, get products for that supplier, excluding supplier catalogue items
             if supplier_id:
-                products = Product.objects.filter(supplier_id=supplier_id).values('id', 'cat_num', 'name').order_by(
-                    'name')
+                products = (Product.objects.filter(supplier_id=supplier_id, supplier_cat_item=False)
+                            .values('id', 'cat_num', 'name').order_by('name'))
             else:
-                # If a supplier's id is not provided, get all products
-                products = Product.objects.all().values('id', 'cat_num', 'name').order_by('name')
+                # If a supplier's id is not provided, get all products, excluding supplier catalogue items
+                products = (Product.objects.filter(supplier_cat_item=False).values('id', 'cat_num', 'name')
+                            .order_by('name'))
 
             # Format the products to have 'value' and 'label' keys and return them
             ordered_formatted_products = [{'value': p['id'], 'label': f"{p['cat_num']} ({p['name']})"} for p in
@@ -469,8 +470,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             # get the Product object using the 'product_id'
             product = Product.objects.get(id=product_id)
 
-            # add (or subtract if 'value' is negative) 'value' to the product's stock
-            product.stock += value
+            # update the product stock
+            product.stock = value
 
             # save changes made to the product's stock
             product.save()
