@@ -18,7 +18,7 @@ class Product(models.Model):
         - name (CharField): The name of the product.
         - category (CharField): The category of the product, chosen from predefined CATEGORIES.
         - unit (CharField): The unit of measurement for the product, chosen from predefined UNITS.
-        - volume (PositiveIntegerField): The volume or quantity of the product.
+        - unit_quantity (PositiveIntegerField): The volume or quantity of the product.
         - stock (PositiveIntegerField): The current stock level of the product. Can be null or blank.
         - storage (CharField): Storage conditions for the product, chosen from predefined STORAGE options.
         - price (DecimalField): The current price of the product. Can be null or blank.
@@ -70,7 +70,7 @@ class Product(models.Model):
     name = models.CharField(max_length=255, db_index=True)
     category = models.CharField(max_length=255, choices=CATEGORIES)
     unit = models.CharField('measurement unit', max_length=50, choices=UNITS)
-    volume = models.PositiveIntegerField()
+    unit_quantity = models.PositiveIntegerField()
     stock = models.PositiveIntegerField(null=True, blank=True)
     storage = models.CharField('storage conditions', max_length=20,
                                choices=STORAGE)

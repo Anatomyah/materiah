@@ -459,7 +459,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 'name': catalogue_product.name,
                 'category': catalogue_product.category,
                 'unit': catalogue_product.unit,
-                'volume': catalogue_product.volume,
+                'unit_quantity': catalogue_product.unit_quantity,
                 'storage': catalogue_product.storage,
                 'price': catalogue_product.price,
                 'url': catalogue_product.url,
