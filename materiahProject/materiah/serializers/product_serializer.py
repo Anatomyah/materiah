@@ -5,8 +5,24 @@ from rest_framework import serializers
 
 from ..models import Manufacturer, Supplier
 from ..models.file import FileUploadStatus
-from ..models.product import Product, ProductImage
+from ..models import Product, ProductImage, ProductItem
 from ..s3 import create_presigned_post, delete_s3_object
+
+
+class ProductItemSerializer(serializers.ModelSerializer):
+    """
+    ProductItemSerializer
+
+    This class is responsible for serializing and deserializing instances of ProductItem model.
+
+    Usage:
+        Instantiate an object of this class to perform serialization or deserialization of ProductItem instances.
+
+    """
+
+    class Meta:
+        model = ProductItem
+        fields = ['batch', 'in_use', 'expiry']
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -30,9 +46,9 @@ class ProductSerializer(serializers.ModelSerializer):
     """
         Serializer for the Product model.
 
-        The serializer defines the fields that get serialized/deserialized. The 'images' field is defined as a many-to-many
-        relationship with the ProductImage model, where the source is from the 'productimage_set'. Moreover, 'manufacturer'
-        and 'supplier' fields are defined using a SerializerMethodField.
+        The serializer defines the fields that get serialized/deserialized. The 'images' field is defined as a
+        one-to-many relationship with the ProductImage model, where the source is from the 'productimage_set'.
+        Moreover, 'manufacturer' and 'supplier' fields are defined using a SerializerMethodField.
 
         The `create()` method overrides the default implementation to handle creation of the product instance as well as
         its related images in the context of a transaction.
@@ -40,17 +56,17 @@ class ProductSerializer(serializers.ModelSerializer):
         The `update()` method overrides the default implementation to handle updating of the product instance as well as
         its related images in the context of a transaction.
 
-        The `get_manufacturer()` and `get_supplier()` serializer methods define how to transform the outgoing native Python
-        datatype into primitive datatypes that can then be rendered into JSON.
+        The `get_manufacturer()` and `get_supplier()` serializer methods define how to transform the outgoing native
+        Python datatype into primitive datatypes that can then be rendered into JSON.
 
-        The `to_representation()` method alters the default representation by popping out 'images' from the representation
-        and replacing it with an empty list if it does not exist.
+        The `to_representation()` method alters the default representation by popping out 'images' from the
+        representation and replacing it with an empty list if it does not exist.
 
         The `check_and_delete_images()`, `handle_images()`, and `generate_s3_key()` methods are helper methods that deal
         with managing S3 image uploads related to the product.
         """
     images = ProductImageSerializer(source='productimage_set', many=True, read_only=True)
-
+    items = ProductItemSerializer(source='productitem_set', many=True, read_only=True)
     manufacturer = serializers.SerializerMethodField()
     supplier = serializers.SerializerMethodField()
 
@@ -58,7 +74,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'cat_num', 'name', 'category', 'unit', 'unit_quantity', 'stock',
-            'storage', 'price', 'url', 'manufacturer', 'supplier', 'images', 'supplier_cat_item'
+            'storage', 'price', 'url', 'manufacturer', 'supplier', 'images', 'items', 'supplier_cat_item'
         ]
 
     @staticmethod
@@ -103,10 +119,12 @@ class ProductSerializer(serializers.ModelSerializer):
            Returns:
                dict: The representation of the Product instance.
 
-           In the representation of the Product instance, if 'images' does not exist, it pops and replaces with an empty list.
-           """
+           In the representation of the Product instance, if 'images' does not exist, it pops and replaces with an
+           empty list.
+        """
         representation = super(ProductSerializer, self).to_representation(instance)
         representation['images'] = representation.pop('images', [])
+        representation['items'] = representation.pop('items', [])
         return representation
 
     @transaction.atomic
@@ -115,18 +133,23 @@ class ProductSerializer(serializers.ModelSerializer):
         :param validated_data: A dictionary containing the validated data for creating a new product.
         :return: The created product object.
 
-        This method is used to create a new product object. It takes in the validated data as a parameter and returns the created product object.
+        This method is used to create a new product object. It takes in the validated data as a parameter and returns
+        the created product object.
 
-        The method first extracts the manufacturer_id and supplier_id from the request data in the serializer context. It then converts the 'supplier_cat_item' field in the request data to a
-        * boolean value and adds it to the validated_data.
+        The method first extracts the manufacturer_id and supplier_id from the request data in the serializer
+        context. It then converts the 'supplier_cat_item' field in the request data to a * boolean value and adds it
+        to the validated_data.
 
-        Next, it tries to get the Manufacturer instance using the manufacturer_id. If the Manufacturer instance does not exist, it raises a validation error.
+        Next, it tries to get the Manufacturer instance using the manufacturer_id. If the Manufacturer instance does
+        not exist, it raises a validation error.
 
-        Similarly, it tries to get the Supplier instance using the supplier_id. If the Supplier instance does not exist, it raises a validation error.
+        Similarly, it tries to get the Supplier instance using the supplier_id. If the Supplier instance does not
+        exist, it raises a validation error.
 
         After that, it creates the product object using the Manufacturer and Supplier instances and the validated data.
 
-        If images exist in the request data, the method handles the images and generates presigned URLs for them. The presigned URLs are then added to the serializer context.
+        If images exist in the request data, the method handles the images and generates presigned URLs for them. The
+        presigned URLs are then added to the serializer context.
 
         Finally, the method returns the created product object.
         """
@@ -213,7 +236,8 @@ class ProductSerializer(serializers.ModelSerializer):
         :return: None
         :rtype: None
         """
-        # Create a list of image ids to delete by splitting the comma-separated string of image ids and converting them to integers
+        # Create a list of image ids to delete by splitting the comma-separated string of image ids and converting
+        # them to integers
         images_to_delete_ids = [int(id_) for id_ in image_ids.split(',')]
 
         # Iterate over each id in the list

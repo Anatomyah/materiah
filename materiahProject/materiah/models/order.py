@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+
 from .quote import Quote, QuoteItem
 
 
@@ -37,6 +38,7 @@ class OrderItem(models.Model):
     Attributes:
     - order (ForeignKey): A foreign key to the 'Order' model, representing the order to which the item belongs.
     - quote_item (OneToOneField): A one-to-one relationship to the 'QuoteItem' model. This field can be null.
+    - product_item (OneToOneField): A one-to-one relationship to the 'ProductItem' model. This field can be null.
     - quantity (PositiveIntegerField): The quantity of the item ordered.
     - batch (CharField): The batch number of the item. This field can be blank or null.
     - expiry (DateField): The expiry date of the item. This field can be blank or null.
@@ -58,6 +60,7 @@ class OrderItem(models.Model):
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     quote_item = models.OneToOneField(QuoteItem, on_delete=models.SET_NULL, null=True)
+    product_item = models.OneToOneField('ProductItem', on_delete=models.SET_NULL, null=True)
     quantity = models.PositiveIntegerField()
     batch = models.CharField(max_length=50, blank=True, null=True)
     expiry = models.DateField(blank=True, null=True)
