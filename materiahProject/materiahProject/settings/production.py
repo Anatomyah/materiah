@@ -5,10 +5,10 @@ ALLOWED_HOSTS = ['52.28.42.227', 'ec2-52-28-42-227.eu-central-1.compute.amazonaw
 
 # CORS
 CORS_ALLOWED_ORIGINS = [
-    "http://52.28.42.227",
-    "http://ec2-52-28-42-227.eu-central-1.compute.amazonaws.com",
-    "http://materiahstock.com",
-    "http://www.materiahstock.com"
+    "https://52.28.42.227",
+    "https://ec2-52-28-42-227.eu-central-1.compute.amazonaws.com",
+    "https://materiahstock.com",
+    "https://www.materiahstock.com"
 ]
 
 # Database

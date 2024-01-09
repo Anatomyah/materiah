@@ -11,18 +11,51 @@ from ..s3 import create_presigned_post, delete_s3_object
 
 class ProductItemSerializer(serializers.ModelSerializer):
     """
-    ProductItemSerializer
+    Class: ProductItemSerializer
 
-    This class is responsible for serializing and deserializing instances of ProductItem model.
+    This class is a serializer for the ProductItem model. It is used to serialize ProductItem instances into JSON
+    format.
 
-    Usage:
-        Instantiate an object of this class to perform serialization or deserialization of ProductItem instances.
+    Attributes:
+        - order (serializers.SerializerMethodField): A method field that retrieves the related Order information.
 
+    Methods: - get_order(obj: ProductItem) -> dict: Returns a dictionary with Order ID and arrival date for
+    ProductItem's related Order.
     """
+    order = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductItem
-        fields = ['batch', 'in_use', 'expiry']
+        fields = ['id', 'batch', 'in_use', 'expiry', 'order']
+
+    def get_order(self, obj):
+        """Returns a dictionary with Order ID and arrival date for ProductItem's related Order.
+
+        Args:
+            obj (ProductItem): Instance of ProductItem model.
+
+        Returns:
+            dict: Dictionary containing Order ID and arrival date, or None if no related Order.
+        """
+        if hasattr(obj, 'orderitem') and obj.orderitem.order:
+            # Return the desired information if a related Order exists
+            return {"id": obj.orderitem.order.id, "arrival_date": obj.orderitem.order.arrival_date}
+
+        # Return None if no related Order
+        return None
+
+    def to_representation(self, instance):
+        """
+        :param instance: The instance of the object that needs to be represented.
+
+        :return: The representation of the object.
+        """
+        representation = super(ProductItemSerializer, self).to_representation(instance)
+        if representation.get('order') is None:
+            # If 'order' key exist and its value is None, remove 'order' from dictionary
+            representation.pop('order')
+
+        return representation
 
 
 class ProductImageSerializer(serializers.ModelSerializer):

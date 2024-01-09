@@ -7,9 +7,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
-from ..models import Product, ProductImage
+from ..models import Product, ProductImage, ProductItem
 from .permissions import ProfileTypePermission
-from ..serializers.product_serializer import ProductSerializer
+from ..serializers.product_serializer import ProductSerializer, ProductItemSerializer
 from ..s3 import delete_s3_object
 
 
@@ -17,28 +17,22 @@ class ProductViewSet(viewsets.ModelViewSet):
     """
     :class:`ProductViewSet` defines the viewset for handling CRUD operations for the `Product` model.
 
-    Attributes:
-        - queryset (QuerySet): Specifies the queryset for retrieving all product objects.
-        - serializer_class (Serializer): Specifies the serializer class for serializing and deserializing `Product` objects.
-        - pagination_class (Pagination): Specifies the pagination class for paginating the list of products.
-        - filter_backends (List[Filter]): Specifies the list of filter backends to apply for filtering products.
-        - search_fields (List[str]): Specifies the list of fields to search products by.
+    Attributes: - queryset (QuerySet): Specifies the queryset for retrieving all product objects. - serializer_class
+    (Serializer): Specifies the serializer class for serializing and deserializing `Product` objects. -
+    pagination_class (Pagination): Specifies the pagination class for paginating the list of products. -
+    filter_backends (List[Filter]): Specifies the list of filter backends to apply for filtering products. -
+    search_fields (List[str]): Specifies the list of fields to search products by.
 
-    Methods:
-        - get_permissions: Returns the list of permissions required for the current user.
-        - list: Retrieves a list of products with optional filtering, pagination, and caching.
-        - get_queryset: Retrieves the queryset for retrieving products with optional filtering by supplier and catalog status.
-        - retrieve: Retrieves a specific product by its ID.
-        - create: Creates a new product.
-        - update: Updates an existing product.
-        - destroy: Deletes an existing product.
-        - names: Retrieves a list of product names for autocomplete suggestions.
-        - update_image_upload_status: Updates the status of product image uploads.
-        - check_cat_num: Checks if a catalog number is unique.
-        - update_stock_item: Updates the stock quantity of a product.
+    Methods: - get_permissions: Returns the list of permissions required for the current user. - list: Retrieves a
+    list of products with optional filtering, pagination, and caching. - get_queryset: Retrieves the queryset for
+    retrieving products with optional filtering by supplier and catalog status. - retrieve: Retrieves a specific
+    product by its ID. - create: Creates a new product. - update: Updates an existing product. - destroy: Deletes an
+    existing product. - names: Retrieves a list of product names for autocomplete suggestions. -
+    update_image_upload_status: Updates the status of product image uploads. - check_cat_num: Checks if a catalog
+    number is unique. - update_stock_item: Updates the stock quantity of a product.
 
-    Note:
-        This class inherits from `viewsets.ModelViewSet`, which provides the default behavior for handling CRUD operations on a model.
+    Note: This class inherits from `viewsets.ModelViewSet`, which provides the default behavior for handling CRUD
+    operations on a model.
     """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -50,8 +44,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         Retrieves the permissions for the current user.
 
-        :return: A list of permissions. If the user is authenticated, it contains a single `ProfileTypePermission` object.
-                 Otherwise, an empty list is returned.
+        :return: A list of permissions. If the user is authenticated, it contains a single `ProfileTypePermission`
+        object. Otherwise, an empty list is returned.
         """
         # Check if the user is authenticated
         if self.request.user.is_authenticated:
@@ -125,7 +119,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             response.data['next'] = None
 
         # Set cache timeout duration
-        cache_timeout = 500
+        cache_timeout = 1
         # Add response to cache
         cache.set(cache_key, response.data, cache_timeout)
         # Append current cache key to list of cache keys for product list
@@ -192,8 +186,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         This method begins by getting a serializer with the incoming request data for product creation.
         It verifies that the provided data is valid, and if it is, it creates a new Product instance from this data.
 
-        It also checks for the presence of 'presigned_urls' (i.e., pre-signed S3 URLs for image files) in the serializer's context.
-        If any are found, they are added to the response data along with the serialized product details.
+        It also checks for the presence of 'presigned_urls' (i.e., pre-signed S3 URLs for image files) in the
+        serializer's context. If any are found, they are added to the response data along with the serialized product
+        details.
 
         :param request: The HTTP request containing the data to create the resource.
         :param args: Additional positional arguments.
@@ -318,9 +313,9 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         This method is not specific to any Product instance (detail=False), so it doesn't operate on a single record.
 
-        With or without the supplier's ID as a query parameter, the function queries the database for products and generates
-        a list of products represented as dictionaries. Each product contains its 'id', 'cat_num'(catalogue number), and 'name'
-        and is ordered by 'name'.
+        With or without the supplier's ID as a query parameter, the function queries the database for products and
+        generates a list of products represented as dictionaries. Each product contains its 'id', 'cat_num'(catalogue
+        number), and 'name' and is ordered by 'name'.
 
         If the 'supplier_id' query parameter is present, only Products from that supplier are returned.
 
@@ -365,14 +360,14 @@ class ProductViewSet(viewsets.ModelViewSet):
         This is a custom action in the `ProductViewSet` not particular to a specific Product instance.
         Its purpose is to handle updates on image upload statuses of various ProductImage instances.
 
-        The function iterates through the provided data in the POST request, getting the image id and its
-        respective upload status. Depending on the upload status, it either deletes the image or its 'upload_status' status.
+        The function iterates through the provided data in the POST request, getting the image id and its respective
+        upload status. Depending on the upload status, it either deletes the image or its 'upload_status' status.
 
         The method compiles a list of ids for which the operation failed due to either the image being non-existent or
         due to an exception during execution.
 
-        If no errors occur during the process, a message indicating a successful operation is returned. If any errors occur,
-        a list of all errors is returned.
+        If no errors occur during the process, a message indicating a successful operation is returned. If any errors
+        occur, a list of all errors is returned.
 
         :param request: The request object containing the upload statuses.
         :return: A response object indicating the result of the update.
@@ -421,8 +416,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         Check if a catalog number exists in the Product database.
 
-        :param request: An HTTP request object.
-        :return: A Response object with a JSON payload indicating if the catalog number is unique and a corresponding message.
+        :param request: An HTTP request object. :return: A Response object with a JSON payload indicating if the
+        catalog number is unique and a corresponding message.
         """
         try:
             # Get the catalogue number from the request parameters
@@ -449,7 +444,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['POST'])
-    def update_stock_item(self, request):
+    def update_product_stock(self, request):
         """
         Updates the stock of a product.
 
@@ -480,5 +475,53 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({"message": f"Updated product {product_id} stock successfully"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with the error message
+            # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
+            # the error message
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # todo - DOCUMENTATION
+    @action(detail=False, methods=['POST'])
+    def create_stock_item(self, request):
+        product_id = request.data.get('product_id')
+        batch = request.data.get('batch')
+        in_use = request.data.get('in_use', False)
+        expiry = request.data.get('expiry')
+
+        try:
+            stock_item = ProductItem.objects.create(product_id=product_id, batch=batch, in_use=in_use, expiry=expiry)
+            # create a serializer instance with your updated stock_item instance
+            serializer = ProductItemSerializer(stock_item)
+            # return a successful response along with HTTP 200 status code once the product stock is updated
+            return Response({"message": f"Updated product {product_id} stock successfully",
+                             'stock_item': serializer.data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
+            # the error message
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['PATCH'])
+    def update_stock_item(self, request):
+        item_id = request.data.get('item_id')
+        batch = request.data.get('batch')
+        in_use = request.data.get('in_use', False)
+        expiry = request.data.get('expiry')
+
+        try:
+            stock_item = ProductItem.objects.get(id=item_id)
+            stock_item.batch = batch
+            stock_item.in_use = in_use
+            stock_item.expiry = expiry
+            stock_item.save()
+
+            # create a serializer instance with your updated stock_item instance
+            serializer = ProductItemSerializer(stock_item)
+
+            # return a successful response along with HTTP 200 status code once the product stock is updated
+            return Response({"message": f"Updated product {item_id} stock successfully",
+                             'stock_item': serializer.data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
+            # the error message
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

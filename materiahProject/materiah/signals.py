@@ -6,7 +6,7 @@ from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created
 
-from .models import Manufacturer, Supplier, Product, Order, Quote
+from .models import Manufacturer, Supplier, Product, Order, Quote, ProductItem
 
 
 @receiver(reset_password_token_created)
@@ -90,6 +90,8 @@ def invalidate_supplier_list_cache(sender, **kwargs):
 
 @receiver(post_save, sender=Product)
 @receiver(post_delete, sender=Product)
+@receiver(post_save, sender=ProductItem)
+@receiver(post_delete, sender=ProductItem)
 def invalidate_product_list_cache(sender, **kwargs):
     """
     Invalidates the product list cache when a product is saved or deleted.

@@ -89,7 +89,7 @@ class Product(models.Model):
 
 
 class ProductItem(models.Model):
-    """Represents a product item.
+    """Represents a product stock item of a given product.
 
     :ivar product: The product associated with the item.
     :vartype product: Product
