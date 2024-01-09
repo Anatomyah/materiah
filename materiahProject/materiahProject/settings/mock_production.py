@@ -1,7 +1,8 @@
 from .base import *
 
 DEBUG = False
-ALLOWED_HOSTS = ['3.70.176.24', 'ec2-3-70-176-24.eu-central-1.compute.amazonaws.com']
+ALLOWED_HOSTS = ['3.70.176.24', 'ec2-3-70-176-24.eu-central-1.compute.amazonaws.com', 'materiahstock.com',
+                 'www.materiahstock.com']
 
 # CORS
 CORS_ALLOWED_ORIGINS = [
