@@ -28,7 +28,8 @@ class ProductItemSerializer(serializers.ModelSerializer):
         model = ProductItem
         fields = ['id', 'batch', 'in_use', 'expiry', 'order']
 
-    def get_order(self, obj):
+    @staticmethod
+    def get_order(obj):
         """Returns a dictionary with Order ID and arrival date for ProductItem's related Order.
 
         Args:
@@ -37,9 +38,10 @@ class ProductItemSerializer(serializers.ModelSerializer):
         Returns:
             dict: Dictionary containing Order ID and arrival date, or None if no related Order.
         """
-        if hasattr(obj, 'orderitem') and obj.orderitem.order:
+        print(obj.order_item)
+        if hasattr(obj, 'order_item'):
             # Return the desired information if a related Order exists
-            return {"id": obj.orderitem.order.id, "arrival_date": obj.orderitem.order.arrival_date}
+            return {"id": obj.order_item.order.id, "arrival_date": obj.order_item.order.arrival_date}
 
         # Return None if no related Order
         return None

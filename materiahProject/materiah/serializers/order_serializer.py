@@ -9,7 +9,8 @@ from rest_framework import serializers
 from .product_serializer import ProductSerializer
 from .quote_serializer import QuoteSerializer
 from ..s3 import create_presigned_post, delete_s3_object
-from ..models import Quote, QuoteItem, OrderNotifications, ProductOrderStatistics, Product, Order, OrderItem, OrderImage
+from ..models import Quote, QuoteItem, OrderNotifications, ProductOrderStatistics, Product, Order, OrderItem, \
+    OrderImage, ProductItem
 from ..models.file import FileUploadStatus
 
 
@@ -157,14 +158,22 @@ class OrderSerializer(serializers.ModelSerializer):
 
             # Depending on whether the status is OK, either create a new item in the inventory (if it does not
             # exist) or update the quantity of the existing item in the inventory
-            self.create_inventory_product_or_update_statistics_and_quantity(cat_num=product_cat_num,
-                                                                            quantity=item_data['quantity'],
-                                                                            update_stock=status)
+            inventory_product = self.create_inventory_product_or_update_statistics_and_quantity(cat_num=product_cat_num,
+                                                                                                quantity=item_data[
+                                                                                                    'quantity'],
+                                                                                                update_stock=status)
 
-            # Create a new order item and associate it with the quote item. Check if the quote item is fulfilled
-            quote_item_fulfilled = self.relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(
-                item_data=item_data,
-                order=order)
+            # Create a new order item and associate it with the quote item. Check if the quote item is fulfilled and
+            # return the fulfillment status and order item in a dictionary
+            result_dict = self.relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(item_data=item_data,
+                                                                                                order=order)
+
+            quote_item_fulfilled = result_dict['fulfilled']
+            order_item = result_dict['order_item']
+
+            # Create a stock item related to that inventory product
+            self.create_stock_items(batch=item_data['batch'], expiry=item_data['expiry'], product=inventory_product,
+                                    order_item=order_item, quantity=item_data['quantity'])
 
             # If not all quote items are fulfilled, mark the entire quote as not fulfilled
             if not quote_item_fulfilled and quote_fulfilled:
@@ -525,10 +534,10 @@ class OrderSerializer(serializers.ModelSerializer):
         # If the quantity of the order item does not match the quantity of the quote item,
         # or if the status of the order item is not 'OK', the quote is not fulfilled. Return False.
         if quote_item.quantity != order_item.quantity or order_item.status != 'OK':
-            return False
+            return {'fulfilled': False, 'order_item': order_item}
 
         # If all checks passed, the quote is fulfilled. Return True.
-        return True
+        return {'fulfilled': True, 'order_item': order_item}
 
     @staticmethod
     def relate_quoteitem_to_orderitem_and_check_quote_fulfillment_update(item_data, instance):
@@ -601,3 +610,24 @@ class OrderSerializer(serializers.ModelSerializer):
         else:
             related_quote.status = "FULFILLED"
         related_quote.save()
+
+    @staticmethod
+    def create_stock_items(batch, expiry, product, order_item, quantity):
+        """
+        Create new stock items according to the quantity of the received product
+
+        :param order_item: The order item associated with the stock items
+        :type product: OrderItem
+        :param batch: The batch number of the stock items.
+        :type batch: str
+        :param expiry: The expiry date of the stock items.
+        :type expiry: datetime.date
+        :param product: The product associated with the stock items.
+        :type product: Product
+        :param quantity: The number of stock items to be created.
+        :type quantity: int
+        :rtype: None
+        """
+        items = [ProductItem(product=product, order_item=order_item, batch=batch, expiry=expiry) for _ in
+                 range(quantity)]
+        ProductItem.objects.bulk_create(items)

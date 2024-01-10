@@ -93,6 +93,8 @@ class ProductItem(models.Model):
 
     :ivar product: The product associated with the item.
     :vartype product: Product
+    :ivar order_item: The order_item associated with the item.
+    :vartype order_item: OrderItem
     :ivar batch: The batch number of the item.
     :vartype batch: str
     :ivar in_use: Indicates if the item is currently in use.
@@ -101,6 +103,7 @@ class ProductItem(models.Model):
     :vartype expiry: date
     """
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    order_item = models.ForeignKey('OrderItem', on_delete=models.CASCADE, default=None)
     batch = models.CharField(max_length=50, blank=True, null=True)
     in_use = models.BooleanField(default=False)
     expiry = models.DateField(blank=True, null=True)

@@ -180,6 +180,7 @@ class QuoteSerializer(serializers.ModelSerializer):
 
             # Convert QueryDict request data to Python dictionary
             request_data = self.convert_querydict_to_dict(request_data)
+            print(type(request_data))
 
             # If quote_file_type is provided and request is for manual creation
             if quote_file_type:
@@ -363,12 +364,14 @@ class QuoteSerializer(serializers.ModelSerializer):
             items = json.loads(request_data[supplier_id])
             # Create a quote with status as 'RECEIVED'
             quote = Quote.objects.create(supplier=supplier, status='RECEIVED')
-            # If not manual creation, directly get items from the request_data
+
+        # If not manual creation, directly get items from the request_data
+        else:
             items = request_data[supplier_id]
             # Create a quote with supplier data
             quote = Quote.objects.create(supplier=supplier)
 
-            # Iterate over each item for quote
+        # Iterate over each item for quote
         for item in items:
             # Fetch the product_id from item
             product_id = item.pop('product', None)
