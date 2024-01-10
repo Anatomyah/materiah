@@ -139,6 +139,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
+
 # Amazon SES Email Configuration
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST = 'email-smtp.eu-central-1.amazonaws.com'

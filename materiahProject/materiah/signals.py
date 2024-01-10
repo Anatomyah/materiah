@@ -94,7 +94,8 @@ def invalidate_supplier_list_cache(sender, **kwargs):
 @receiver(post_delete, sender=ProductItem)
 def invalidate_product_list_cache(sender, **kwargs):
     """
-    Invalidates the product list cache when a product is saved or deleted.
+    Invalidates the product list cache when a product is saved or deleted or when a stock item related to a product is
+    saved or deleted.
 
     :param sender: The sender model instance.
     :param kwargs: The keyword arguments passed to the signal handler.

@@ -479,20 +479,31 @@ class ProductViewSet(viewsets.ModelViewSet):
             # the error message
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # todo - DOCUMENTATION
     @action(detail=False, methods=['POST'])
     def create_stock_item(self, request):
+        """
+        Create a stock item for a product.
+
+        :param request: The HTTP request object.
+        :return: The HTTP response with the created stock item information or an error.
+        """
+
+        # store necessary data into variables to create the stock item
         product_id = request.data.get('product_id')
         batch = request.data.get('batch')
-        in_use = request.data.get('in_use', False)
+        in_use = request.data.get('in_use')
         expiry = request.data.get('expiry')
 
         try:
+            # create an instance of the stock item and relating it to the relevant product using that data
             stock_item = ProductItem.objects.create(product_id=product_id, batch=batch, in_use=in_use, expiry=expiry)
-            # create a serializer instance with your updated stock_item instance
+
+            # create a serializer instance with the newly created stock_item instance
             serializer = ProductItemSerializer(stock_item)
-            # return a successful response along with HTTP 200 status code once the product stock is updated
-            return Response({"message": f"Updated product {product_id} stock successfully",
+
+            # return a successful response along with the stock_item representation and an HTTP 200 status code once the
+            # stock item is successfully created
+            return Response({"message": f"Stock item {stock_item.id} created successfully",
                              'stock_item': serializer.data}, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -502,24 +513,59 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['PATCH'])
     def update_stock_item(self, request):
+        """
+        Update the stock item.
+
+        :param request: The request object containing the data for updating the stock item.
+        :type request: Request
+        :return: The response with the updated stock item data.
+        :rtype: Response
+        """
+
+        # store the necessary data into variables to create the stock item
         item_id = request.data.get('item_id')
         batch = request.data.get('batch')
         in_use = request.data.get('in_use', False)
         expiry = request.data.get('expiry')
 
         try:
+            # fetch the ProductItem instance matching the item_id and update it's fields with the updated data
             stock_item = ProductItem.objects.get(id=item_id)
             stock_item.batch = batch
             stock_item.in_use = in_use
             stock_item.expiry = expiry
             stock_item.save()
 
-            # create a serializer instance with your updated stock_item instance
-            serializer = ProductItemSerializer(stock_item)
+            # return a successful response along with HTTP 200 status code once the ProductItem is updated
+            return Response({"message": f"Stock item {stock_item.id} updated successfully"},
+                            status=status.HTTP_200_OK)
 
-            # return a successful response along with HTTP 200 status code once the product stock is updated
-            return Response({"message": f"Updated product {item_id} stock successfully",
-                             'stock_item': serializer.data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
+            # the error message
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['DELETE'])
+    def delete_stock_item(self, request):
+        """
+        Deletes a stock item from the product inventory.
+
+        :param request: The HTTP request object containing the item ID to be deleted.
+        :return: Returns a response object with a success message if the deletion is successful, or an error message if any exception occurs.
+
+        """
+
+        # store the item ID into a variable
+        item_id = request.data.get('item_id')
+
+        try:
+            # fetch and delete that item
+            stock_item = ProductItem.objects.get(id=item_id)
+            stock_item.delete()
+
+            # return a successful response along with HTTP 200 status code once the ProductItem is deleted
+            return Response({"message": f"Stock item {stock_item.id} deleted successfully"},
+                            status=status.HTTP_200_OK)
 
         except Exception as e:
             # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
