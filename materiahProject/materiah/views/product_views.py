@@ -556,7 +556,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
 
         # store the item ID into a variable
-        item_id = request.data.get('item_id')
+        item_id = request.GET.get('item_id')
 
         try:
             # fetch and delete that item
