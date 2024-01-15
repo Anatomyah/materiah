@@ -50,7 +50,9 @@ class Product(models.Model):
     ]
 
     UNITS = [
+        ('L', 'Litres, l'),
         ('ML', 'Milliliters, ml'),
+        ('KG', 'Kilograms, kg'),
         ('G', 'Grams, g'),
         ('MG', 'Milligrams, mg'),
         ('UG', 'Micrograms, µg'),
