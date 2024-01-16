@@ -21,7 +21,7 @@ class Supplier(models.Model):
        """
     name = models.CharField(max_length=255, unique=True)
     website = models.URLField()
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, blank=True, null=True)
     phone_prefix = models.CharField(max_length=3, choices=PHONE_PREFIX_CHOICES, default='02')
     phone_suffix = models.CharField(max_length=7, validators=[validate_phone_suffix])
 

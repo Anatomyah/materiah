@@ -1,3 +1,5 @@
+import os
+
 from rest_framework import pagination
 from rest_framework.response import Response
 
@@ -26,8 +28,8 @@ class MateriahPagination(pagination.PageNumberPagination):
     print(response)
     ```
     """
-    page_size = 12
-    max_page_size = 16
+    page_size = 4
+    max_page_size = 4
     page_query_param = "page_num"
 
     def get_paginated_response(self, data):
@@ -41,3 +43,11 @@ class MateriahPagination(pagination.PageNumberPagination):
             'next': self.get_next_link(),
             'results': data
         })
+
+    def get_next_link(self):
+        link = super().get_next_link()
+        # Check if the USE_HTTPS environment variable is set to 'True'
+        if os.environ.get('DJANGO_SETTINGS_MODULE', 'materiahProject.settings.production') == 'True':
+            if link:
+                link = link.replace('http://', 'https://')
+        return link
