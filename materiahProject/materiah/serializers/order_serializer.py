@@ -171,9 +171,10 @@ class OrderSerializer(serializers.ModelSerializer):
             quote_item_fulfilled = result_dict['fulfilled']
             order_item = result_dict['order_item']
 
-            # Create a stock item related to that inventory product
-            self.create_stock_items(batch=item_data['batch'], expiry=item_data['expiry'], product=inventory_product,
-                                    order_item=order_item, quantity=item_data['quantity'])
+            # Creates or deletes stock items related to that inventory product
+            self.create_or_delete_stock_items(batch=item_data['batch'], expiry=item_data['expiry'],
+                                              product=inventory_product,
+                                              order_item=order_item, quantity=item_data['quantity'])
 
             # If not all quote items are fulfilled, mark the entire quote as not fulfilled
             if not quote_item_fulfilled and quote_fulfilled:
@@ -420,22 +421,27 @@ class OrderSerializer(serializers.ModelSerializer):
         product_statistics.save()
 
     @staticmethod
-    def update_product_stock_on_update(product, new_quantity, quote_item_quantity):
+    def update_product_stock_on_update(product, new_quantity, order_item_quantity):
         """
            Updates the stock of a product when an order item is updated.
 
            Args:
                product (Product): The product whose stock is to be updated.
                new_quantity (int): The new quantity of the product.
-               quote_item_quantity (int): The original quantity of the product in the quote item.
+               order_item_quantity (int): The original quantity of the product in the order item.
 
            This method adjusts the stock of the product based on the difference between the new quantity
            and the original quote item quantity.
            """
-        if quote_item_quantity != new_quantity:
-            stock_adjustment = new_quantity - quote_item_quantity
+        stock_adjustment = None
+        new_quantity = int(new_quantity)
+
+        if order_item_quantity != new_quantity:
+            stock_adjustment = new_quantity - order_item_quantity
             product.stock += stock_adjustment
         product.save()
+
+        return stock_adjustment
 
     @staticmethod
     def create_inventory_product_or_update_statistics_and_quantity(cat_num, quantity, update_stock):
@@ -555,8 +561,8 @@ class OrderSerializer(serializers.ModelSerializer):
         serializers.ValidationError: Raised if the quote item does not exist.
            """
 
-        # Set the status based on the 'status' key from the 'item_data' dictionary.
-        status = item_data['status'] == 'OK' or 'Different amount'
+        # Set the status boolean based on the 'status' key from the 'item_data' dictionary.
+        status = item_data['status'] == 'OK' or 'Different amount' or 'Did not arrive'
 
         try:
             # Try to refer to the quote item using the id from the 'item_data' dictionary.
@@ -568,6 +574,24 @@ class OrderSerializer(serializers.ModelSerializer):
         # Get the order item using an instance of an order and the previously defined quote item.
         order_item = OrderItem.objects.get(order=instance, quote_item=quote_item)
 
+        # Get the product from the quote item.
+        product = quote_item.product
+        # Store the order item and the updated item quantity
+        order_item_quantity = int(order_item.quantity)
+        item_quantity = int(item_data['quantity'])
+
+        # If status is met, update product stock upon order update.
+        if status and item_quantity != order_item.quantity:
+            stock_adjustment = OrderSerializer.update_product_stock_on_update(product=product,
+                                                                              new_quantity=item_quantity,
+                                                                              order_item_quantity=order_item_quantity)
+            # If a stock adjustment was performed
+            if stock_adjustment:
+                # Create or delete stock items related to that inventory product according to that stock adjustment
+                OrderSerializer.create_or_delete_stock_items(batch=item_data['batch'], expiry=item_data['expiry'],
+                                                             product=quote_item.product, order_item=order_item,
+                                                             quantity=stock_adjustment)
+
         # Iter over items in the 'item_data' dictionary
         for field_name, new_value in item_data.items():
             # For each item, update corresponding attribute of the order item.
@@ -576,16 +600,8 @@ class OrderSerializer(serializers.ModelSerializer):
         # Save the updated order item.
         order_item.save()
 
-        # Get the product from the quote item.
-        product = quote_item.product
-
-        # If status is met, update product stock upon order update.
-        if status:
-            OrderSerializer.update_product_stock_on_update(product=product, new_quantity=item_data['quantity'],
-                                                           quote_item_quantity=quote_item.quantity)
-
-        # Check if the quantity in quote item differs from quantity in order item or if status of the order item isn't 'OK'.
-        # If any of these conditions is True, return False, which means the quote is not fulfilled.
+        # Check if the quantity in quote item differs from quantity in order item or if status of the order item
+        # isn't 'OK'. If any of these conditions is True, return False, which means the quote is not fulfilled.
         if quote_item.quantity != order_item.quantity or order_item.status != 'OK':
             return False
 
@@ -612,7 +628,7 @@ class OrderSerializer(serializers.ModelSerializer):
         related_quote.save()
 
     @staticmethod
-    def create_stock_items(batch, expiry, product, order_item, quantity):
+    def create_or_delete_stock_items(batch, expiry, product, order_item, quantity):
         """
         Create new stock items according to the quantity of the received product
 
@@ -628,6 +644,18 @@ class OrderSerializer(serializers.ModelSerializer):
         :type quantity: int
         :rtype: None
         """
-        items = [ProductItem(product=product, order_item=order_item, batch=batch, expiry=expiry) for _ in
-                 range(quantity)]
-        ProductItem.objects.bulk_create(items)
+        quantity = int(quantity)
+
+        # If stock adjustment (quantity) is a positive number, create that amount of stock items
+        if quantity > 0:
+            items = [ProductItem(product=product, order_item=order_item, batch=batch, expiry=expiry) for _ in
+                     range(quantity)]
+            ProductItem.objects.bulk_create(items)
+            
+        # If it's a negative number, delete that amount of stock items
+        else:
+            items_to_delete = ProductItem.objects.filter(product=product, order_item=order_item, batch=batch)[
+                              :abs(quantity)]
+
+            for item in items_to_delete:
+                item.delete()

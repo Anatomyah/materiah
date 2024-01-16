@@ -6,7 +6,7 @@ from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created
 
-from .models import Manufacturer, Supplier, Product, Order, Quote, ProductItem
+from .models import Manufacturer, Supplier, Product, Order, Quote, ProductItem, OrderItem, QuoteItem
 
 
 @receiver(reset_password_token_created)
@@ -109,6 +109,8 @@ def invalidate_product_list_cache(sender, **kwargs):
 
 @receiver(post_save, sender=Order)
 @receiver(post_delete, sender=Order)
+@receiver(post_save, sender=OrderItem)
+@receiver(post_delete, sender=OrderItem)
 def invalidate_order_list_cache(sender, **kwargs):
     """
     Invalidates the cache for the order list.
@@ -128,6 +130,8 @@ def invalidate_order_list_cache(sender, **kwargs):
 
 @receiver(post_save, sender=Quote)
 @receiver(post_delete, sender=Quote)
+@receiver(post_save, sender=QuoteItem)
+@receiver(post_delete, sender=QuoteItem)
 def invalidate_quote_list_cache(sender, **kwargs):
     """
     Invalidate the quote_list cache based on the specified sender and kwargs.

@@ -38,7 +38,6 @@ class ProductItemSerializer(serializers.ModelSerializer):
         Returns:
             dict: Dictionary containing Order ID and arrival date, or None if no related Order.
         """
-        print(obj.order_item)
         if hasattr(obj, 'order_item'):
             # Return the desired information if a related Order exists
             return {"id": obj.order_item.order.id, "arrival_date": obj.order_item.order.arrival_date}

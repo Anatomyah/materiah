@@ -119,7 +119,7 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
         return queryset
 
     @action(detail=False, methods=['GET'])
-    def names(self, request):
+    def get_manufacturer_select_list(self, request):
         """
         Fetches a QuerySet of dictionaries for each manufacturer, each containing 'id' and 'name' fields.
 
@@ -130,9 +130,17 @@ class ManufacturerViewSet(viewsets.ModelViewSet):
         :raises: Exception if any error occurs during the process
 
         """
+        # Store the supplier ID for filtering if sent
+        supplier_id = request.GET.get('supplier_id', None)
+
         try:
-            # Fetches a QuerySet of dictionaries for each manufacturer, each containing 'id' and 'name' fields.
-            manufacturers = Manufacturer.objects.values('id', 'name').order_by('name')
+            # Fetches a QuerySet of dictionaries for each manufacturer, each containing 'id' and 'name' fields,
+            # filtering by supplier if a supplier ID was provided
+            if supplier_id:
+                manufacturers = (Manufacturer.objects.filter(suppliers__id=supplier_id).values('id', 'name')
+                                 .order_by('name'))
+            else:
+                manufacturers = (Manufacturer.objects.values('id', 'name').order_by('name'))
 
             # Formats the manufacturers in a list, where each item is a dictionary
             # with 'value' set to the 'id' and 'label' set to the 'name'

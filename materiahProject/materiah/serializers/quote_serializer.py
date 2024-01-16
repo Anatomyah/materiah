@@ -136,6 +136,21 @@ class QuoteSerializer(serializers.ModelSerializer):
             # Finally, return the list of retrieved order ids
             return order_ids
 
+    def to_representation(self, instance):
+        """
+        Method to transform the serialized representation of an instance to remove the order key if
+        the quote is not related to an order
+
+        :param instance: The instance to be serialized.
+        :return: The serialized representation of the instance.
+        """
+        representation = super(QuoteSerializer, self).to_representation(instance)
+        if representation.get('order') is None:
+            # If 'order' key exist and its value is None, remove 'order' from dictionary
+            representation.pop('order')
+
+        return representation
+
     @transaction.atomic
     def create(self, validated_data):
         """
@@ -180,7 +195,6 @@ class QuoteSerializer(serializers.ModelSerializer):
 
             # Convert QueryDict request data to Python dictionary
             request_data = self.convert_querydict_to_dict(request_data)
-            print(type(request_data))
 
             # If quote_file_type is provided and request is for manual creation
             if quote_file_type:

@@ -161,9 +161,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         :param kwargs: additional keyword arguments passed to the method
         :return: Response with updated data
 
-        This method updates an instance with the given data in the HTTP request, using the serializer. It performs validation on the serialized data and then calls the perform_update method
-        *. After updating the instance, it retrieves the success headers and returns the updated data in a response. If there are presigned URLs in the serializer's context, it adds them to
-        * the returned data.
+        This method updates an instance with the given data in the HTTP request, using the serializer. It performs
+        validation on the serialized data and then calls the perform_update method. After updating the instance,
+        it retrieves the success headers and returns the updated data in a response. If there are presigned URLs in
+        the serializer's context, it adds them to the returned data.
         """
         # Fetch the Order instance based on the provided id in the URL
         instance = self.get_object()

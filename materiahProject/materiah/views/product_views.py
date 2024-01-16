@@ -119,7 +119,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             response.data['next'] = None
 
         # Set cache timeout duration
-        cache_timeout = 1
+        cache_timeout = 500
         # Add response to cache
         cache.set(cache_key, response.data, cache_timeout)
         # Append current cache key to list of cache keys for product list
