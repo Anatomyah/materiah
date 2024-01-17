@@ -68,7 +68,7 @@ class Product(models.Model):
         ('Other', 'Other')
     ]
 
-    cat_num = models.CharField('catalogue number', max_length=255, db_index=True)
+    cat_num = models.CharField('catalogue number', max_length=255, db_index=True, unique=True)
     name = models.CharField(max_length=255, db_index=True)
     category = models.CharField(max_length=255, choices=CATEGORIES)
     unit = models.CharField('measurement unit', max_length=50, choices=UNITS)
