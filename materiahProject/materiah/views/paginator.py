@@ -51,7 +51,5 @@ class MateriahPagination(pagination.PageNumberPagination):
             if os.environ.get('USE_HTTPS') == 'False':
                 return link
             else:
-                print(link)
                 link = link.replace('http://', 'https://')
-                print(link)
             return link
