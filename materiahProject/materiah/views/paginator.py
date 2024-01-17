@@ -28,8 +28,8 @@ class MateriahPagination(pagination.PageNumberPagination):
     print(response)
     ```
     """
-    page_size = 4
-    max_page_size = 4
+    page_size = 10
+    max_page_size = 14
     page_query_param = "page_num"
 
     def get_paginated_response(self, data):
@@ -47,7 +47,11 @@ class MateriahPagination(pagination.PageNumberPagination):
     def get_next_link(self):
         link = super().get_next_link()
         # Check if the USE_HTTPS environment variable is set to 'True'
-        # if os.environ.get('DJANGO_SETTINGS_MODULE') == 'materiahProject.settings.production':
         if link:
-            link = link.replace('http://', 'https://')
-        return link
+            if os.environ.get('USE_HTTPS') == 'False':
+                return link
+            else:
+                print(link)
+                link = link.replace('http://', 'https://')
+                print(link)
+            return link

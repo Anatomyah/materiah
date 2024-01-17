@@ -20,10 +20,10 @@ class Supplier(models.Model):
            unique_together: Ensures that the combination of phone_prefix and phone_suffix is unique across all suppliers.
        """
     name = models.CharField(max_length=255, unique=True)
-    website = models.URLField()
+    website = models.URLField(blank=True, null=True)
     email = models.EmailField(unique=True, blank=True, null=True)
-    phone_prefix = models.CharField(max_length=3, choices=PHONE_PREFIX_CHOICES, default='02')
-    phone_suffix = models.CharField(max_length=7, validators=[validate_phone_suffix])
+    phone_prefix = models.CharField(max_length=3, choices=PHONE_PREFIX_CHOICES, default='02', blank=True, null=True)
+    phone_suffix = models.CharField(max_length=7, validators=[validate_phone_suffix], blank=True, null=True)
 
     def __str__(self):
         return f"{self.name}"
