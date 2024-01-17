@@ -28,5 +28,13 @@ class Supplier(models.Model):
     def __str__(self):
         return f"{self.name}"
 
+    def save(self, *args, **kwargs):
+        if not self.email:
+            self.email = None
+        if not self.phone_prefix and not self.phone_suffix:
+            self.phone_prefix = None
+            self.phone_suffix = None
+        super(Supplier, self).save(*args, **kwargs)
+        
     class Meta:
         unique_together = ('phone_prefix', 'phone_suffix')
