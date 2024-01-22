@@ -122,10 +122,11 @@ class ProductSerializer(serializers.ModelSerializer):
             Returns:
                 dict: A dictionary containing 'id' and 'name' of the associated Manufacturer.
             """
-        return {
-            'id': obj.manufacturer.id,
-            'name': obj.manufacturer.name,
-        }
+        if obj.manufacturer:
+            return {
+                'id': obj.manufacturer.id,
+                'name': obj.manufacturer.name,
+            }
 
     @staticmethod
     def get_supplier(obj):
@@ -194,12 +195,6 @@ class ProductSerializer(serializers.ModelSerializer):
         validated_data['supplier_cat_item'] = self.context.get('view').request.data.get('supplier_cat_item') == 'true'
 
         try:
-            # Try to get the Manufacturer instance using the manufacturer_id
-            manufacturer = Manufacturer.objects.get(id=manufacturer_id)
-        except Manufacturer.DoesNotExist:
-            # If the Manufacturer instance does not exist, raise a validation error
-            raise serializers.ValidationError("Manufacturer does not exist")
-        try:
             # Try to get the Supplier instance using the supplier_id
             supplier = Supplier.objects.get(id=supplier_id)
         except Supplier.DoesNotExist:
@@ -207,8 +202,16 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Supplier does not exist")
 
         # Create the product object using the Manufacturer and Supplier instances and validated data
-        product = Product.objects.create(manufacturer=manufacturer,
-                                         supplier=supplier, **validated_data)
+        product = Product.objects.create(supplier=supplier, **validated_data)
+
+        if manufacturer_id != "":
+            try:
+                # Try to get the Manufacturer instance using the manufacturer_id
+                manufacturer = Manufacturer.objects.get(id=manufacturer_id)
+                product.manufacturer = manufacturer
+            except Manufacturer.DoesNotExist:
+                # If the Manufacturer instance does not exist, raise a validation error
+                raise serializers.ValidationError("Manufacturer does not exist")
 
         try:
             # Try to load images from the request data as a JSON format
