@@ -79,7 +79,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     previous_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     url = models.URLField()
-    manufacturer = models.ForeignKey(to=Manufacturer, on_delete=models.CASCADE)
+    manufacturer = models.ForeignKey(to=Manufacturer, on_delete=models.CASCADE, null=True, blank=True)
     supplier = models.ForeignKey(to=Supplier, on_delete=models.CASCADE)
     supplier_cat_item = models.BooleanField(default=False)
 
@@ -105,10 +105,14 @@ class ProductItem(models.Model):
     :vartype expiry: date
     """
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    order_item = models.ForeignKey('OrderItem', on_delete=models.CASCADE, default=None)
+    order_item = models.ForeignKey('OrderItem', on_delete=models.CASCADE, default=None, null=True, blank=True)
     batch = models.CharField(max_length=50, blank=True, null=True)
     in_use = models.BooleanField(default=False)
     expiry = models.DateField(blank=True, null=True)
+
+
+class ExpiryNotifications(models.Model):
+    product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None)
 
 
 class ProductImage(models.Model):
@@ -165,6 +169,7 @@ class ProductOrderStatistics(models.Model):
     order_count = models.IntegerField(default=0)
     last_ordered = models.DateTimeField(null=True, blank=True)
     avg_order_time = models.DurationField(null=True, blank=True)
+    avg_order_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
 
 class OrderNotifications(models.Model):
@@ -195,9 +200,3 @@ class OrderNotifications(models.Model):
             stock levels to supplier information, aiding in efficient inventory control and order planning.
         """
     product = models.OneToOneField(Product, on_delete=models.CASCADE)
-    product_name = models.CharField(max_length=255, null=True, blank=True)
-    product_cat_num = models.CharField(max_length=255, null=True, blank=True)
-    supplier_name = models.CharField(max_length=255, null=True, blank=True)
-    current_stock = models.CharField(max_length=255, null=True, blank=True)
-    last_ordered = models.DateField(null=True, blank=True)
-    avg_order_time = models.CharField(max_length=255, null=True, blank=True)
