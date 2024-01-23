@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 import logging
-from .tasks import refresh_order_notifications, delete_failed_upload_statuses
+from .tasks import refresh_order_notifications, create_expiry_notifications, delete_failed_upload_statuses
 
 
 def start_scheduler():
@@ -38,6 +38,10 @@ def start_scheduler():
     # Add a job to the scheduler. The function 'refresh_order_notifications' will
     # be run daily at midnight according to the cron-like schedule specified by hour=0, minute=0.
     scheduler.add_job(refresh_order_notifications, 'cron', hour=0, minute=0)
+
+    # Add a job to the scheduler. The function 'refresh_expiry_notifications' will
+    # be run daily at 3AM according to the cron-like schedule specified by hour=3, minute=0.
+    scheduler.add_job(create_expiry_notifications, 'cron', hour=3, minute=0)
 
     # Add another job to the scheduler. The function 'delete_failed_upload_statuses' will be
     # run every 20 minutes.

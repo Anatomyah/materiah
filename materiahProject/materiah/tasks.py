@@ -1,7 +1,8 @@
+from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import ProductOrderStatistics, OrderNotifications
+from .models import ProductOrderStatistics, OrderNotifications, ProductItem, ExpiryNotifications
 from .models.file import FileUploadStatus
 
 
@@ -51,40 +52,52 @@ def refresh_order_notifications():
 
     # Iterate over each relevant_product
     for product_stats in relevant_products:
+        # Extract product related to the product_stat
+        product = product_stats.product
+
         # If the average order time is less than the time elapsed since the product was last ordered
-        if product_stats.avg_order_time < (current_time - product_stats.last_ordered):
-            # Extract product related to the product_stat
-            product = product_stats.product
-
-            # Convert timedelta to string (e.g. "1 day, 5 months, 2 years")
-            string_repr = timedelta_to_str(product_stats.avg_order_time)
-
+        # or if half of the average order quantity for this product is more than it's current stock
+        if (product_stats.avg_order_time < (current_time - product_stats.last_ordered)
+                or (product_stats.avg_order_quantity / 2) > product.stock):
             # Create a new OrderNotification object
-            OrderNotifications.objects.create(
-                product=product,
-                product_name=product.name,  # Name of the product
-                product_cat_num=product.cat_num,  # Catalog number of the product
-                supplier_name=product.supplier.name,  # Name of the supplier
-                current_stock=product.stock,  # Current stock of the product
-                last_ordered=product_stats.last_ordered.date(),  # Date when the product was last ordered
-                avg_order_time=string_repr  # String representation of average order time
-            )
+            OrderNotifications.objects.create(product=product)
+
+
+def create_expiry_notifications():
+    """
+    Creates expiry notifications for relevant stock items.
+
+    This method filters the ProductItems to only those items whose expiry date precedes the current date or falls
+    within the next six months. It then iterates through each of the relevant stock items and creates expiry
+    notifications for them.
+
+    :return: None
+    """
+    current_date = timezone.now().date()
+    expiry_date = current_date + timedelta(days=180)
+
+    # Filter the ProductItem to only those items which expiry date precedes the current date or falls within the next
+    # six months
+    relevant_stock_items = ProductItem.objects.filter(
+        Q(expiry__range=(current_date, expiry_date)) | Q(expiry__lt=current_date) & Q(expirynotifications__isnull=True))
+
+    # Iterate through each of the relevant stock items and create and create expiry notifications for them
+    for item in relevant_stock_items:
+        ExpiryNotifications.objects.create(product_item=item)
 
 
 def delete_failed_upload_statuses():
     """
-        This function deletes FileUploadStatus instances that were created more than 10 minutes ago.
+        This function deletes FileUploadStatus instances that were created more than 20 minutes ago.
         """
 
-    # Calculate timestamp for 10 minutes ago
-    ten_minutes_ago = timezone.now() - timedelta(minutes=10)
+    # Calculate timestamp for 20 minutes ago
+    twenty_minutes_ago = timezone.now() - timedelta(minutes=20)
 
-    # Get all FileUploadStatus objects that were created before ten_minutes_ago
-    upload_statuses = FileUploadStatus.objects.filter(created_at__lt=ten_minutes_ago)
+    # Get all FileUploadStatus objects that were created before twenty_minutes_ago
+    upload_statuses = FileUploadStatus.objects.filter(created_at__lt=twenty_minutes_ago)
 
     # Check if there are any FileUploadStatus instances to delete
     if upload_statuses:
         # If yes, delete these object instances
         upload_statuses.delete()
-
-    # The function does not return a value. It's intentionally made to just perform the deletion operation.

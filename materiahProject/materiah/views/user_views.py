@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from rest_framework.views import APIView
 
-from ..models import OrderNotifications, SupplierUserProfile, UserProfile
+from ..models import OrderNotifications, SupplierUserProfile, UserProfile, ExpiryNotifications
 from ..serializers.user_serializer import UserSerializer
 
 
@@ -391,19 +391,23 @@ class CustomObtainAuthToken(ObtainAuthToken):
             except ObjectDoesNotExist:
                 pass
 
-            # Get all order notifications
-            notifications = OrderNotifications.objects.all()
+            # Set the response data dictionary
             response_data = {
                 'token': token.key,
                 'user_details': user_details,
             }
 
-            # If there exists any notifications, then serialise it and json load it for
-            # sending as part of the response.
-            if notifications.exists():
-                notifications = json.loads(serialize('json', OrderNotifications.objects.all()))
-                for item in notifications:
-                    item.pop('model', None)
+            # Check for order or expiry notifications
+            order_notifications_exist = OrderNotifications.objects.exists()
+            expiry_notifications_exist = ExpiryNotifications.objects.exists()
+
+            # If there exists any notifications, add a boolean indicating this to the frontend
+            if order_notifications_exist or expiry_notifications_exist:
+                notifications = {}
+                if order_notifications_exist:
+                    notifications['order_notifications'] = order_notifications_exist.notifications
+                if expiry_notifications_exist:
+                    notifications['expiry_notifications'] = expiry_notifications_exist
                 response_data['notifications'] = notifications
 
             return Response(response_data)

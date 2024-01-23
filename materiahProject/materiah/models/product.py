@@ -112,6 +112,12 @@ class ProductItem(models.Model):
 
 
 class ExpiryNotifications(models.Model):
+    """
+    Class representing expiry notifications for product items.
+
+    Attributes:
+        product_item (ForeignKey): The product item associated with the expiry notification.
+    """
     product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None)
 
 
@@ -164,6 +170,7 @@ class ProductOrderStatistics(models.Model):
     - order_count (IntegerField): The total number of times the product has been ordered.
     - last_ordered (DateTimeField): The date and time when the product was last ordered. Can be null or blank.
     - avg_order_time (DurationField): The average time between orders. Can be null or blank.
+    - avg_order_quantity (DecimalField): The average quantity ordered. Can be null or blank.
     """
     product = models.OneToOneField(Product, on_delete=models.CASCADE)
     order_count = models.IntegerField(default=0)
@@ -174,29 +181,11 @@ class ProductOrderStatistics(models.Model):
 
 class OrderNotifications(models.Model):
     """
-        The OrderNotifications class is a Django model that represents notifications related to product orders.
-        This class is designed to keep track of various details associated with products and their ordering process.
-        It is particularly useful for maintaining a record of inventory, supplier details, and order timings.
 
-        Attributes:
-            product (OneToOneField): A one-to-one relationship with the Product model. Each instance of OrderNotifications
-                is linked to a specific product. The on_delete=models.CASCADE argument ensures that if a Product is deleted,
-                the associated OrderNotifications instance is also deleted.
-            product_name (CharField): Stores the name of the product. Optional field, can be left blank or set to null.
-                Max Length: 255 characters.
-            product_cat_num (CharField): Holds the product catalog number, allowing for easy reference. Optional field.
-                Max Length: 255 characters.
-            supplier_name (CharField): Records the name of the supplier for the product. Optional field.
-                Max Length: 255 characters.
-            current_stock (CharField): Indicates the current stock level of the product. Optional field.
-                Max Length: 255 characters.
-            last_ordered (DateField): Captures the date when the product was last ordered. Optional field.
-            avg_order_time (CharField): Contains the average time taken for the product to be ordered. Optional field.
-                Max Length: 255 characters.
+    The `OrderNotifications` class is a model that represents order notifications. It is defined in the `models` module.
 
-        Usage:
-            This model can be utilized in inventory management systems, e-commerce platforms, or any application where
-            tracking product order details is essential. It provides a comprehensive view of product-related data, from
-            stock levels to supplier information, aiding in efficient inventory control and order planning.
-        """
+    Attributes:
+        product (OneToOneField): The product associated with the order notification.
+
+    """
     product = models.OneToOneField(Product, on_delete=models.CASCADE)

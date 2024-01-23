@@ -2,17 +2,38 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from ...models import Supplier, Product, ProductItem, ExpiryNotifications
-from ...tasks import refresh_expiry_notifications
+from ...tasks import create_expiry_notifications
 
 
 class Command(BaseCommand):
-    help = 'Description of your command'
+    """
+    This class is a subclass of BaseCommand and represents a custom command in the project.
+
+    Attributes:
+        help (str): A string describing the purpose or functionality of the command.
+
+    Methods:
+        handle(self, *args, **options): The main entry point for the command. Executes the logic of the command.
+
+    """
+    help = 'Creates a sample product with certain product items and their expiry notifications in the project.'
 
     def handle(self, *args, **options):
+        """
+                Main entry point for the command. This command attempts to:
+                - Create a new product
+                - Add product items to the product
+                - Refresh expiry notifications for the product items
+                - Print the ids of expiry notifications
+                - Delete the sample product
+                """
+        # Attempt to create a sample product and its necessary items within a transaction
         try:
             with transaction.atomic():
                 first_supplier = Supplier.objects.first()
                 product_items = []
+
+                # Create a new product
                 new_product = Product(
                     cat_num='12345',
                     name='Sample Product',
@@ -26,6 +47,7 @@ class Command(BaseCommand):
                 )
                 new_product.save()
 
+                # Add product items with a valid expiration date
                 for _ in range(2):
                     product_item = ProductItem(
                         product=new_product,
@@ -35,6 +57,7 @@ class Command(BaseCommand):
                     product_item.save()
                     product_items.append(product_item)
 
+                # Add product items with an invalid expiration date
                 for _ in range(2):
                     product_item = ProductItem(
                         product=new_product,
@@ -44,12 +67,16 @@ class Command(BaseCommand):
                     product_item.save()
                     product_items.append(product_item)
 
-                refresh_expiry_notifications()
+                # Refresh expiry notifications for the product items
+                create_expiry_notifications()
 
+                # Extract product item id's from product items
                 product_item_ids = [item.id for item in product_items]
 
+                # Query notifications based on product item ids
                 ExpiryNotifications.objects.filter(product_item_id__in=product_item_ids)
 
+                # Delete sample product after creating notifications
                 new_product.delete()
 
                 print('Successfully created product, product items, and expiry notifications')

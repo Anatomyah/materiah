@@ -78,31 +78,23 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     """
-        Serializer for the Product model.
+       A serializer for the Product model. It includes serializer fields for associated models like images, items,
+       manufacturer, and supplier.
 
-        The serializer defines the fields that get serialized/deserialized. The 'images' field is defined as a
-        one-to-many relationship with the ProductImage model, where the source is from the 'productimage_set'.
-        Moreover, 'manufacturer' and 'supplier' fields are defined using a SerializerMethodField.
+       The serializer fields include:
+       - images: A serializer for the associated Product image set
+       - items: A serializer for the associated Product item set
+       - manufacturer: A PrimaryKeyRelatedField for the related Manufacturer
+       - supplier: A PrimaryKeyRelatedField for the related Supplier
 
-        The `create()` method overrides the default implementation to handle creation of the product instance as well as
-        its related images in the context of a transaction.
-
-        The `update()` method overrides the default implementation to handle updating of the product instance as well as
-        its related images in the context of a transaction.
-
-        The `get_manufacturer()` and `get_supplier()` serializer methods define how to transform the outgoing native
-        Python datatype into primitive datatypes that can then be rendered into JSON.
-
-        The `to_representation()` method alters the default representation by popping out 'images' from the
-        representation and replacing it with an empty list if it does not exist.
-
-        The `check_and_delete_images()`, `handle_images()`, and `generate_s3_key()` methods are helper methods that deal
-        with managing S3 image uploads related to the product.
-        """
+       This serializer has additional methods for handling image uploads including presigned url generation and image deletion.
+       """
     images = ProductImageSerializer(source='productimage_set', many=True, read_only=True)
     items = ProductItemSerializer(source='productitem_set', many=True, read_only=True)
-    manufacturer = serializers.SerializerMethodField()
-    supplier = serializers.SerializerMethodField()
+    manufacturer = serializers.PrimaryKeyRelatedField(
+        queryset=Manufacturer.objects.all(), required=False, allow_null=True
+    )
+    supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all())
 
     class Meta:
         model = Product
@@ -110,39 +102,6 @@ class ProductSerializer(serializers.ModelSerializer):
             'id', 'cat_num', 'name', 'category', 'unit', 'unit_quantity', 'stock',
             'storage', 'price', 'url', 'manufacturer', 'supplier', 'images', 'items', 'supplier_cat_item'
         ]
-
-    @staticmethod
-    def get_manufacturer(obj):
-        """
-            This method retrieves a dictionary containing id and name of the Manufacturer for a Product instance.
-
-            Args:
-                obj (Product): A Product instance.
-
-            Returns:
-                dict: A dictionary containing 'id' and 'name' of the associated Manufacturer.
-            """
-        if obj.manufacturer:
-            return {
-                'id': obj.manufacturer.id,
-                'name': obj.manufacturer.name,
-            }
-
-    @staticmethod
-    def get_supplier(obj):
-        """
-            This method retrieves a dictionary containing id and name of the Supplier for a Product instance.
-
-            Args:
-                obj (Product): A Product instance.
-
-            Returns:
-                dict: A dictionary containing 'id' and 'name' of the associated Supplier.
-            """
-        return {
-            'id': obj.supplier.id,
-            'name': obj.supplier.name,
-        }
 
     def to_representation(self, instance):
         """
@@ -165,53 +124,13 @@ class ProductSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """
-        :param validated_data: A dictionary containing the validated data for creating a new product.
-        :return: The created product object.
+           Create a new Product instance using validated data.
 
-        This method is used to create a new product object. It takes in the validated data as a parameter and returns
-        the created product object.
-
-        The method first extracts the manufacturer_id and supplier_id from the request data in the serializer
-        context. It then converts the 'supplier_cat_item' field in the request data to a * boolean value and adds it
-        to the validated_data.
-
-        Next, it tries to get the Manufacturer instance using the manufacturer_id. If the Manufacturer instance does
-        not exist, it raises a validation error.
-
-        Similarly, it tries to get the Supplier instance using the supplier_id. If the Supplier instance does not
-        exist, it raises a validation error.
-
-        After that, it creates the product object using the Manufacturer and Supplier instances and the validated data.
-
-        If images exist in the request data, the method handles the images and generates presigned URLs for them. The
-        presigned URLs are then added to the serializer context.
-
-        Finally, the method returns the created product object.
-        """
-        # Extract manufacturer_id and supplier_id from the request data in the serializer context
-        manufacturer_id = self.context.get('view').request.data.get('manufacturer')
-        supplier_id = self.context.get('view').request.data.get('supplier')
-        # Convert the 'supplier_cat_item' field in the request data to boolean and add it to the validated_data
-        validated_data['supplier_cat_item'] = self.context.get('view').request.data.get('supplier_cat_item') == 'true'
-
-        try:
-            # Try to get the Supplier instance using the supplier_id
-            supplier = Supplier.objects.get(id=supplier_id)
-        except Supplier.DoesNotExist:
-            # If the Supplier instance does not exist, raise a validation error
-            raise serializers.ValidationError("Supplier does not exist")
-
-        # Create the product object using the Manufacturer and Supplier instances and validated data
-        product = Product.objects.create(supplier=supplier, **validated_data)
-
-        if manufacturer_id != "":
-            try:
-                # Try to get the Manufacturer instance using the manufacturer_id
-                manufacturer = Manufacturer.objects.get(id=manufacturer_id)
-                product.manufacturer = manufacturer
-            except Manufacturer.DoesNotExist:
-                # If the Manufacturer instance does not exist, raise a validation error
-                raise serializers.ValidationError("Manufacturer does not exist")
+           This method extends the default create method to include additional logic for handling images
+           and generating presigned URLs for them.
+           """
+        # Call the superclass's create method to handle the creation of the Product instance
+        product = super().create(validated_data)
 
         try:
             # Try to load images from the request data as a JSON format

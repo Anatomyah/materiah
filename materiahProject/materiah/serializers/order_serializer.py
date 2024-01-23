@@ -156,17 +156,27 @@ class OrderSerializer(serializers.ModelSerializer):
             status = item_data['status'] == 'OK' or 'Different amount'
             product_cat_num = item_data.pop('cat_num')
 
+            try:
+                # Attempt to get the quote item with the given id from the item data
+                quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
+            except QuoteItem.DoesNotExist:
+                # If the quote item does not exist, raise a validation error
+                raise serializers.ValidationError(f"Quote item with ID {item_data['quote_item_id']} does not exist")
+
             # Depending on whether the status is OK, either create a new item in the inventory (if it does not
             # exist) or update the quantity of the existing item in the inventory
             inventory_product = self.create_inventory_product_or_update_statistics_and_quantity(cat_num=product_cat_num,
-                                                                                                quantity=item_data[
+                                                                                                received_quantity=
+                                                                                                item_data[
                                                                                                     'quantity'],
+                                                                                                quote_quantity=quote_item.quantity,
                                                                                                 update_stock=status)
 
             # Create a new order item and associate it with the quote item. Check if the quote item is fulfilled and
             # return the fulfillment status and order item in a dictionary
             result_dict = self.relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(item_data=item_data,
-                                                                                                order=order)
+                                                                                                order=order,
+                                                                                                quote_item=quote_item)
 
             quote_item_fulfilled = result_dict['fulfilled']
             order_item = result_dict['order_item']
@@ -386,7 +396,7 @@ class OrderSerializer(serializers.ModelSerializer):
                quantity (int): The quantity of the product ordered.
                update_stock (bool): Flag to determine if the product stock needs to be updated.
 
-           This method updates the order count, average order time, last ordered time, and stock
+           This method updates the order count, average order time, average order quantity, last ordered time, and stock
            for a product based on the new order. It creates a new ProductOrderStatistics instance if it does not exist.
            """
         try:
@@ -403,10 +413,18 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # If more than one order has been made, update the average order time
         if updated_order_count > 1:
-            new_delta = current_time - product_statistics.last_ordered
-            prev_avg = product_statistics.avg_order_time if updated_order_count > 2 else new_delta
-            new_avg = (prev_avg * (updated_order_count - 1) + new_delta) / updated_order_count
-            product_statistics.avg_order_time = new_avg
+            # Update the average time between orders
+            new_time_delta = current_time - product_statistics.last_ordered
+            prev_time_avg = product_statistics.avg_order_time if updated_order_count > 2 else new_time_delta
+            new_time_avg = (prev_time_avg * (updated_order_count - 1) + new_time_delta) / updated_order_count
+            product_statistics.avg_order_time = new_time_avg
+
+            # Update the average quantity of the received product
+            prev_quantity_avg = product_statistics.avg_order_quantity if updated_order_count > 1 else 0
+            new_quantity_avg = (prev_quantity_avg * (updated_order_count - 1) + quantity) / updated_order_count
+            product_statistics.avg_order_quantity = new_quantity_avg
+
+            # Set the new last_ordered fields
             product_statistics.last_ordered = current_time
         else:
             # If it's the first order, simply update the last_ordered timestamp
@@ -444,13 +462,15 @@ class OrderSerializer(serializers.ModelSerializer):
         return stock_adjustment
 
     @staticmethod
-    def create_inventory_product_or_update_statistics_and_quantity(cat_num, quantity, update_stock):
+    def create_inventory_product_or_update_statistics_and_quantity(cat_num, received_quantity, quote_quantity,
+                                                                   update_stock):
         """
            Creates or updates an inventory product based on a catalogue product and updates its statistics and quantity.
 
            Args:
                cat_num (str): The catalog number of the product.
-               quantity (int): The quantity of the product ordered.
+               received_quantity (int): The actual quantity of the product as received.
+               quote_quantity (int): The quantity of the product as appears on the quote.
                update_stock (bool): Flag to indicate whether to update the stock of the product.
 
            Returns:
@@ -492,7 +512,7 @@ class OrderSerializer(serializers.ModelSerializer):
         # If a new inventory product was created and the stock needs to be updated,
         # set the product's stock to the ordered quantity
         if created and update_stock:
-            inventory_product.stock = quantity
+            inventory_product.stock = received_quantity
             inventory_product.save()
 
         # If an existing inventory product was updated, delete the associated notification
@@ -500,20 +520,21 @@ class OrderSerializer(serializers.ModelSerializer):
         if not created:
             OrderSerializer.delete_notification(inventory_product)
             OrderSerializer.update_product_statistics_and_quantity_on_create(product=inventory_product,
-                                                                             quantity=quantity,
+                                                                             quantity=quote_quantity,
                                                                              update_stock=update_stock)
 
         # Finally, return the inventory product (either the newly created one or the updated existing one)
         return inventory_product
 
     @staticmethod
-    def relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(item_data, order):
+    def relate_quoteitem_to_orderitem_and_check_quote_fulfillment_create(item_data, order, quote_item):
         """
            Relates a quote item to an order item and checks if the quote is fulfilled upon order creation.
 
            Args:
                item_data (dict): Data dictionary for the order item.
                order (Order): The order to which the item is related.
+               quote_item (QuoteItem): The quote item related to this order item
 
            Returns:
                bool: True if the quote is fulfilled, False otherwise.
@@ -521,12 +542,6 @@ class OrderSerializer(serializers.ModelSerializer):
            This method links a QuoteItem to an OrderItem and checks if the quote is fulfilled based on the quantity
            and status of the OrderItem. It raises a validation error if the QuoteItem does not exist.
            """
-        try:
-            # Attempt to get the quote item with the given id from the item data
-            quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
-        except QuoteItem.DoesNotExist:
-            # If the quote item does not exist, raise a validation error
-            raise serializers.ValidationError(f"Quote item with ID {item_data['quote_item_id']} does not exist")
 
         # Create a new order item and associate it with the fetched quote item
         order_item = OrderItem.objects.create(order=order, quote_item=quote_item, **item_data)
@@ -651,7 +666,7 @@ class OrderSerializer(serializers.ModelSerializer):
             items = [ProductItem(product=product, order_item=order_item, batch=batch, expiry=expiry) for _ in
                      range(quantity)]
             ProductItem.objects.bulk_create(items)
-            
+
         # If it's a negative number, delete that amount of stock items
         else:
             items_to_delete = ProductItem.objects.filter(product=product, order_item=order_item, batch=batch)[
