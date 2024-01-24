@@ -493,10 +493,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         batch = request.data.get('batch')
         in_use = request.data.get('in_use')
         expiry = request.data.get('expiry')
+        opened_on = request.data.get('opened')
 
         try:
             # create an instance of the stock item and relating it to the relevant product using that data
-            stock_item = ProductItem.objects.create(product_id=product_id, batch=batch, in_use=in_use, expiry=expiry)
+            stock_item = ProductItem.objects.create(product_id=product_id, batch=batch, in_use=in_use, expiry=expiry,
+                                                    opened=opened_on)
 
             # create a serializer instance with the newly created stock_item instance
             serializer = ProductItemSerializer(stock_item)
@@ -527,6 +529,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         batch = request.data.get('batch')
         in_use = request.data.get('in_use', False)
         expiry = request.data.get('expiry')
+        opened_on = request.data.get('opened')
 
         try:
             # fetch the ProductItem instance matching the item_id and update it's fields with the updated data
@@ -534,6 +537,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             stock_item.batch = batch
             stock_item.in_use = in_use
             stock_item.expiry = expiry
+            stock_item.opened_on = opened_on
             stock_item.save()
 
             # return a successful response along with HTTP 200 status code once the ProductItem is updated

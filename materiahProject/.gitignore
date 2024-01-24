@@ -1,3 +1,5 @@
 runtime/
 *.log
 *.sqlite3
+
+materiahProject/todo.py

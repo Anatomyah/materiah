@@ -109,16 +109,7 @@ class ProductItem(models.Model):
     batch = models.CharField(max_length=50, blank=True, null=True)
     in_use = models.BooleanField(default=False)
     expiry = models.DateField(blank=True, null=True)
-
-
-class ExpiryNotifications(models.Model):
-    """
-    Class representing expiry notifications for product items.
-
-    Attributes:
-        product_item (ForeignKey): The product item associated with the expiry notification.
-    """
-    product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None)
+    opened_on = models.DateField(blank=True, null=True)
 
 
 class ProductImage(models.Model):
@@ -189,3 +180,13 @@ class OrderNotifications(models.Model):
 
     """
     product = models.OneToOneField(Product, on_delete=models.CASCADE)
+
+
+class ExpiryNotifications(models.Model):
+    """
+    Class representing expiry notifications for product items.
+
+    Attributes:
+        product_item (ForeignKey): The product item associated with the expiry notification.
+    """
+    product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None)
