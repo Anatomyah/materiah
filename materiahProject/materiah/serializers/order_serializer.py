@@ -5,6 +5,7 @@ from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.fields import SerializerMethodField
 
 from .product_serializer import ProductSerializer
 from .quote_serializer import QuoteSerializer
@@ -31,24 +32,49 @@ class OrderImageSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     """
-        Serializer for the OrderItem model. It handles serialization and deserialization
-        of OrderItem instances, including custom representation of related models.
+    OrderItemSerializer
 
-        In the to_representation method, it adds a serialized representation of related
-        Product and specific details of the QuoteItem associated with the OrderItem.
+    Serializer class for the OrderItem model.
 
-        Meta:
-            model: The OrderItem model that is being serialized.
-            fields: Specifies fields to include in the serialized output.
+    Attributes: stock_items (SerializerMethodField): A SerializerMethodField used to retrieve the stock items
+    associated with a given object.
 
-        Methods:
-            to_representation: Overrides the default method to add 'product' and 'quote_item'
-            information to the serialized representation.
-        """
+    Meta:
+        model (OrderItem): The model class that this serializer is based on.
+        fields (list): The fields to include in the serialized representation.
+
+    Methods:
+        get_stock_items(obj)
+            This static method is used to retrieve the stock items associated with a given object.
+
+        to_representation(instance)
+            Overrides the default to_representation method to add additional data.
+    """
+    stock_items = SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ['order', 'quantity', 'batch', 'expiry', 'status', 'issue_detail']
+        fields = ['order', 'quantity', 'status', 'issue_detail', 'stock_items']
+
+    @staticmethod
+    def get_stock_items(obj):
+        """
+        Method: get_stock_items
+
+        This static method is used to retrieve the stock items associated with a given object.
+
+        :param obj: The object for which stock items are to be retrieved.
+        :return: A list of dictionaries containing information about the stock items. Each dictionary contains the
+         following keys:
+        - id: The ID of the stock item.
+        - batch: The batch number of the stock item.
+        - expiry: The expiry date of the stock item.
+        """
+        if ProductItem.objects.filter(order_item=obj).exists():
+            product_items = ProductItem.objects.filter(order_item=obj)
+            return [{'id': item.id, 'batch': item.batch, 'expiry': item.expiry} for item in product_items]
+        else:
+            return []
 
     def to_representation(self, instance):
         """
@@ -155,6 +181,7 @@ class OrderSerializer(serializers.ModelSerializer):
             # Check the item status and update the item quantity in inventory
             status = item_data['status'] == 'OK' or 'Different amount'
             product_cat_num = item_data.pop('cat_num')
+            stock_items = item_data.pop('stock_items', None)
 
             try:
                 # Attempt to get the quote item with the given id from the item data
@@ -182,7 +209,7 @@ class OrderSerializer(serializers.ModelSerializer):
             order_item = result_dict['order_item']
 
             # Creates or deletes stock items related to that inventory product
-            self.create_or_delete_stock_items(batch=item_data['batch'], expiry=item_data['expiry'],
+            self.create_or_delete_stock_items(stock_items=stock_items,
                                               product=inventory_product,
                                               order_item=order_item, quantity=item_data['quantity'])
 
@@ -470,7 +497,7 @@ class OrderSerializer(serializers.ModelSerializer):
            Args:
                cat_num (str): The catalog number of the product.
                received_quantity (int): The actual quantity of the product as received.
-               quote_quantity (int): The quantity of the product as appears on the quote.
+               quote_quantity (int): The quantity of the product as quoted.
                update_stock (bool): Flag to indicate whether to update the stock of the product.
 
            Returns:
@@ -563,7 +590,8 @@ class OrderSerializer(serializers.ModelSerializer):
     @staticmethod
     def relate_quoteitem_to_orderitem_and_check_quote_fulfillment_update(item_data, instance):
         """
-           This method relates a quote item to an order item, checks whether the quote is fulfilled and updates the product stock upon order update.
+        This method relates a quote item to an order item, checks whether the quote is fulfilled and updates the
+        product stock upon order update.
 
            Args:
                item_data (dict): A dictionary containing data about the order item.
@@ -591,9 +619,17 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # Get the product from the quote item.
         product = quote_item.product
-        # Store the order item and the updated item quantity
+        # Store the order item,the updated item quantity and the stock items
         order_item_quantity = int(order_item.quantity)
         item_quantity = int(item_data['quantity'])
+        stock_items = item_data.pop('stock_items', None)
+
+        if stock_items:
+            # If stock item data was sent, parse it into existing data and new or altered data
+            new_stock_items = [item for item in stock_items if 'id' not in item]
+            existing_stock_items = [item for item in stock_items if 'id' in item]
+
+            OrderSerializer.update_stock_items(existing_stock_items)
 
         # If status is met, update product stock upon order update.
         if status and item_quantity != order_item.quantity:
@@ -603,9 +639,8 @@ class OrderSerializer(serializers.ModelSerializer):
             # If a stock adjustment was performed
             if stock_adjustment:
                 # Create or delete stock items related to that inventory product according to that stock adjustment
-                OrderSerializer.create_or_delete_stock_items(batch=item_data['batch'], expiry=item_data['expiry'],
-                                                             product=quote_item.product, order_item=order_item,
-                                                             quantity=stock_adjustment)
+                OrderSerializer.create_or_delete_stock_items(stock_items=new_stock_items, product=quote_item.product,
+                                                             order_item=order_item, quantity=stock_adjustment)
 
         # Iter over items in the 'item_data' dictionary
         for field_name, new_value in item_data.items():
@@ -643,16 +678,14 @@ class OrderSerializer(serializers.ModelSerializer):
         related_quote.save()
 
     @staticmethod
-    def create_or_delete_stock_items(batch, expiry, product, order_item, quantity):
+    def create_or_delete_stock_items(stock_items, product, order_item, quantity):
         """
         Create new stock items according to the quantity of the received product
 
+        :param stock_items: The batch numbers and expiry dates of the stock items.
+        :type stock_items: list
         :param order_item: The order item associated with the stock items
         :type product: OrderItem
-        :param batch: The batch number of the stock items.
-        :type batch: str
-        :param expiry: The expiry date of the stock items.
-        :type expiry: datetime.date
         :param product: The product associated with the stock items.
         :type product: Product
         :param quantity: The number of stock items to be created.
@@ -660,17 +693,86 @@ class OrderSerializer(serializers.ModelSerializer):
         :rtype: None
         """
         quantity = int(quantity)
-
         # If stock adjustment (quantity) is a positive number, create that amount of stock items
         if quantity > 0:
-            items = [ProductItem(product=product, order_item=order_item, batch=batch, expiry=expiry) for _ in
-                     range(quantity)]
+            items = []
+
+            # Scenario 1: Stock items data provided
+            if stock_items:
+                # First, create stock items using the data sent
+                for i in range(min(quantity, len(stock_items))):
+                    item = ProductItem(
+                        product=product,
+                        order_item=order_item,
+                        batch=stock_items[i].get('batch', None),
+                        expiry=stock_items[i].get('expiry', None)
+                    )
+
+                    items.append(item)
+
+                # Then, If the stock items data length did not match the quantity value, create that delta of stock items
+                # without batch and expiry data
+                additional_items_count = quantity - len(stock_items)
+                if additional_items_count > 0:
+                    additional_items = [ProductItem(product=product, order_item=order_item) for _ in
+                                        range(additional_items_count)]
+
+                    items.extend(additional_items)
+
+            # Scenario 2: Stock items data not provided
+            else:
+                # Create stock items without expiry or batch data matching the quantity value
+                items = [ProductItem(product=product, order_item=order_item) for _ in
+                         range(quantity)]
+
+            # Bulk create the ProductItem objects via the items list
             ProductItem.objects.bulk_create(items)
 
         # If it's a negative number, delete that amount of stock items
         else:
-            items_to_delete = ProductItem.objects.filter(product=product, order_item=order_item, batch=batch)[
-                              :abs(quantity)]
+            # Scenario 1: Stock items data provided
+            if stock_items:
+                items_to_delete = []
+                # Use that stock items data to delete stock items with matching batch numbers and expiry dates
+                for i in range(min(quantity, len(stock_items))):
+                    item = ProductItem.objects.filter(product=product,
+                                                      order_item=order_item,
+                                                      batch=stock_items[i].get('batch', None),
+                                                      expiry=stock_items[i].get('expiry', None))
+
+                    items_to_delete.append(item)
+
+                # If the stock items dta length did not match the quantity value, delete stock items related to that
+                # order without specifying batch number and expiry date
+                additional_items_count = abs(quantity) - len(stock_items)
+                if additional_items_count > 0:
+                    additional_items = ProductItem.objects.filter(product=product, order_item=order_item)
+
+                    items_to_delete.extend(additional_items)
+
+            # Scenario 2: Stock items data not provided
+            else:
+                # Query the DB to fetch related stock items without specifying batch number and expiry date
+                items_to_delete = ProductItem.objects.filter(product=product, order_item=order_item)[:abs(quantity)]
 
             for item in items_to_delete:
                 item.delete()
+
+    @staticmethod
+    def update_stock_items(stock_items):
+        """
+        Update stock items.
+
+        :param stock_items: List of dictionaries representing stock items.
+                            Each dictionary should contain the following keys:
+                            - 'id': The ID of the stock item to update.
+                            - 'batch': (optional) The batch identifier of the stock item.
+                            - 'expiry': (optional) The expiry date of the stock item.
+
+        :return: None
+        """
+        for stock_item in stock_items:
+            item = ProductItem.objects.get(id=stock_item['id'])
+            item.batch = stock_item.get('batch', None)
+            item.expiry = stock_item.get('expiry', None)
+            item.save()

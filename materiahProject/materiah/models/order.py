@@ -33,14 +33,12 @@ class OrderItem(models.Model):
     Represents an item within an order.
 
     This model stores details about each item in an order, including the associated quote item,
-    quantity, batch number, expiry date, status, and any issue details.
+    quantity, status, and any issue details.
 
     Attributes:
     - order (ForeignKey): A foreign key to the 'Order' model, representing the order to which the item belongs.
     - quote_item (OneToOneField): A one-to-one relationship to the 'QuoteItem' model. This field can be null.
     - quantity (PositiveIntegerField): The quantity of the item ordered.
-    - batch (CharField): The batch number of the item. This field can be blank or null.
-    - expiry (DateField): The expiry date of the item. This field can be blank or null.
     - status (CharField): The status of the item upon receipt, with choices such as 'OK', 'Did not arrive', etc.
     - issue_detail (CharField): Detailed description of any issues with the item. This field can be null.
 
@@ -60,8 +58,6 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     quote_item = models.OneToOneField(QuoteItem, on_delete=models.SET_NULL, null=True)
     quantity = models.PositiveIntegerField()
-    batch = models.CharField(max_length=50, blank=True, null=True)
-    expiry = models.DateField(blank=True, null=True)
     status = models.CharField('status', max_length=22,
                               choices=STATUS_CHOICES, default='OK')
     issue_detail = models.CharField(max_length=250, null=True)
