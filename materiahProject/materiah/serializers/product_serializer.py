@@ -94,14 +94,22 @@ class ProductSerializer(serializers.ModelSerializer):
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Manufacturer.objects.all(), required=False, allow_null=True
     )
-    supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all())
+    supplier = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             'id', 'cat_num', 'name', 'category', 'unit', 'unit_quantity', 'stock',
-            'storage', 'price', 'url', 'manufacturer', 'supplier', 'images', 'items', 'supplier_cat_item'
+            'storage', 'price', 'currency', 'url', 'manufacturer', 'supplier', 'images', 'items', 'supplier_cat_item'
         ]
+
+    def get_supplier(self, obj):
+        # Assuming 'supplier' is a ForeignKey relation to a Supplier model on the Product model
+        # and that the Supplier model has 'id' and 'name' fields.
+        supplier = obj.supplier
+        if supplier:  # Check if the product has a supplier
+            return {'id': supplier.id, 'name': supplier.name}
+        return None
 
     def to_representation(self, instance):
         """
