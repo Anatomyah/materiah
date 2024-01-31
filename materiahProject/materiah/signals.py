@@ -6,7 +6,8 @@ from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created
 
-from .models import Manufacturer, Supplier, Product, Order, Quote, ProductItem, OrderItem, QuoteItem
+from .models import Manufacturer, Supplier, Product, Order, Quote, ProductItem, OrderItem, QuoteItem, \
+    OrderNotifications, ExpiryNotifications
 
 
 @receiver(reset_password_token_created)
@@ -53,6 +54,38 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
         fail_silently=False,
         html_message=html_content
     )
+
+
+@receiver(post_save, sender=OrderNotifications)
+@receiver(post_delete, sender=OrderNotifications)
+def invalidate_order_notifications_list_cache(sender, **kwargs):
+    """
+    Invalidates the cache for the order notifications list.
+
+    :param sender: The sender of the signal.
+    :param kwargs: Additional keyword arguments.
+    :return: None
+    """
+    keys = cache.get('order_notifications_list_keys', [])
+    for key in keys:
+        cache.delete(key)
+    cache.set('order_notifications_list_keys', [])
+
+
+@receiver(post_save, sender=ExpiryNotifications)
+@receiver(post_delete, sender=ExpiryNotifications)
+def invalidate_expiry_notifications_list_cache(sender, **kwargs):
+    """
+    Invalidates the cache for the expiry notifications list.
+
+    :param sender: The sender of the signal.
+    :param kwargs: Additional keyword arguments.
+    :return: None
+    """
+    keys = cache.get('expiry_notifications_list_keys', [])
+    for key in keys:
+        cache.delete(key)
+    cache.set('expiry_notifications_list_keys', [])
 
 
 @receiver(post_save, sender=Manufacturer)

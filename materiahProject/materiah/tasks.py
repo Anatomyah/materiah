@@ -38,12 +38,20 @@ def timedelta_to_str(td):
 
 def refresh_order_notifications():
     """
-        This function refreshes order notifications based on product statistics.
-        """
+    Refreshes order notifications by performing the following steps:
+    1. Fetch all ProductOrderStatistics objects whose avg_order_time and avg_order_quantity fields are not null
+    2. Get the current time
+    3. Delete all existing OrderNotifications
+    4. Iterate over each relevant_product
+        - Extract the product related to the product_stat
+        - If the relevant values needed to perform the calculation meet certain conditions:
+            - Create a new OrderNotification object for the product
+    """
 
-    # Fetch all ProductOrderStatistics objects whose avg_order_time field is not null
-    relevant_products = ProductOrderStatistics.objects.filter(avg_order_time__isnull=False)
-
+    # Fetch all ProductOrderStatistics objects whose avg_order_time and avg_order_quantity fields are not null
+    relevant_products = ProductOrderStatistics.objects.filter(
+        Q(avg_order_time__isnull=False) | Q(avg_order_quantity__isnull=False)
+    )
     # Get the current time
     current_time = timezone.now()
 
@@ -55,10 +63,13 @@ def refresh_order_notifications():
         # Extract product related to the product_stat
         product = product_stats.product
 
-        # If the average order time is less than the time elapsed since the product was last ordered
-        # or if half of the average order quantity for this product is more than it's current stock
-        if (product_stats.avg_order_time < (current_time - product_stats.last_ordered)
-                or (product_stats.avg_order_quantity / 2) > product.stock):
+        # If the relevant values needed to perform the calculation exist and the average order time is less than the
+        # time elapsed since the product was last ordered or if half of the average order quantity for this product
+        # is more than it's current stock
+        if ((product_stats.avg_order_time is not None and product_stats.last_ordered is not None and
+             (product_stats.avg_order_time < (current_time - product_stats.last_ordered))) or
+                (product_stats.avg_order_quantity is not None and product.stock is not None and
+                 (product_stats.avg_order_quantity / 2) > product.stock)):
             # Create a new OrderNotification object
             OrderNotifications.objects.create(product=product)
 
