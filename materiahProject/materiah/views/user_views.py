@@ -405,7 +405,7 @@ class CustomObtainAuthToken(ObtainAuthToken):
             if order_notifications_exist or expiry_notifications_exist:
                 notifications = {}
                 if order_notifications_exist:
-                    notifications['order_notifications'] = order_notifications_exist.notifications
+                    notifications['order_notifications'] = order_notifications_exist
                 if expiry_notifications_exist:
                     notifications['expiry_notifications'] = expiry_notifications_exist
                 response_data['notifications'] = notifications
