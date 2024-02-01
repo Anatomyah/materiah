@@ -28,7 +28,7 @@ class MateriahPagination(pagination.PageNumberPagination):
     print(response)
     ```
     """
-    page_size = 10
+    page_size = 12
     max_page_size = 14
     page_query_param = "page_num"
 
