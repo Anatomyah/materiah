@@ -26,15 +26,14 @@
         <br>
     {% endfor %} <!-- End loop through items -->
     <br>
-    <div class="uniform-color">בברכה,</div> <!-- Closing salutation -->
-    <div class="uniform-color">מרכז האורגנואידים</div> <!-- Author signoff -->
+    {% include "signature.html" %}
 </div>
 <br>
 <br>
-<div dir="rtl" style='text-align: right; display: flex; flex-direction: row;' class="uniform-color">
+<div dir="rtl" style='text-align: right; display: flex; flex-direction: row; align-items: center; justify-content: flex-start;' class="uniform-color">
     <img src="https://materiah1.s3.eu-central-1.amazonaws.com/design/materiah_logo.png" alt="Description"
-         style="width: 20%; height: auto;"> <!-- Company logo image -->
-    <p class="uniform-color">Sent via </p> <!-- Text indicating the method of delivery -->
+         style="width: 50%; height: auto;"> <!-- Company logo image -->
+    <p style="margin: 0 0 0 0;" class="uniform-color">Sent via </p> <!-- Text indicating the method of delivery -->
 </div>
 </body>
 </html>
