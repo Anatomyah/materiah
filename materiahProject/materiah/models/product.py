@@ -40,14 +40,20 @@ class Product(models.Model):
         - unique_together: Ensures that each combination of 'cat_num' and 'supplier_cat_item' is unique.
         """
     CATEGORIES = [
+        ('Matrix', 'Matrix'),
         ('Medium', 'Medium'),
-        ('Powders', 'Powders'),
-        ('Enzymes', 'Enzymes'),
+        ('Supplement', 'Supplement'),
+        ('Powder', 'Powder'),
+        ('Enzyme', 'Enzyme'),
+        ('Antibody', 'Antibody'),
+        ('Dye', 'Dye'),
+        ('Hormone', 'Hormone'),
+        ('Medication', 'Medication'),
+        ('Antibiotic', 'Antibiotic'),
         ('Plastics', 'Plastics'),
         ('Glassware', 'Glassware'),
         ('Sanitary', 'Sanitary'),
         ('Lab Equipment', 'Lab Equipment'),
-        ('Antibodies', 'Antibodies')
     ]
 
     UNITS = [
