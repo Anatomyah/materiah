@@ -102,7 +102,8 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'cat_num', 'name', 'category', 'unit', 'unit_quantity', 'stock',
-            'storage', 'price', 'currency', 'url', 'manufacturer', 'supplier', 'images', 'items', 'supplier_cat_item'
+            'storage', 'location', 'price', 'currency', 'url', 'manufacturer', 'supplier', 'images', 'items',
+            'supplier_cat_item'
         ]
 
     # def get_supplier(self, obj):
