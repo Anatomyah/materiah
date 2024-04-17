@@ -26,7 +26,7 @@ class ProductItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductItem
-        fields = ['id', 'batch', 'in_use', 'expiry', 'order']
+        fields = '__all__'
 
     @staticmethod
     def get_order(obj):
@@ -38,11 +38,14 @@ class ProductItemSerializer(serializers.ModelSerializer):
         Returns:
             dict: Dictionary containing Order ID and arrival date, or None if no related Order.
         """
-        if hasattr(obj, 'order_item'):
-            # Return the desired information if a related Order exists
-            return {"id": obj.order_item.order.id, "arrival_date": obj.order_item.order.arrival_date}
+        # Check if 'order_item' exists and is not None
+        if hasattr(obj, 'order_item') and obj.order_item:
+            # Further check if 'order_item' has an 'order' and it is not None
+            if obj.order_item.order:
+                # Return the desired information if a related Order exists
+                return {"id": obj.order_item.order.id, "arrival_date": obj.order_item.order.arrival_date}
 
-        # Return None if no related Order
+        # Return None if no related Order or if any part of the chain is None
         return None
 
     def to_representation(self, instance):
@@ -51,11 +54,14 @@ class ProductItemSerializer(serializers.ModelSerializer):
 
         :return: The representation of the object.
         """
+        print('here')
+        print(instance)
         representation = super(ProductItemSerializer, self).to_representation(instance)
+        print(representation)
         if representation.get('order') is None:
             # If 'order' key exist and its value is None, remove 'order' from dictionary
             representation.pop('order')
-
+        print('there')
         return representation
 
 

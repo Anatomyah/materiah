@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.utils.dateparse import parse_date
 from rest_framework import filters, status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -488,21 +491,22 @@ class ProductViewSet(viewsets.ModelViewSet):
         :return: The HTTP response with the created stock item information or an error.
         """
 
-        # store necessary data into variables to create the stock item
-        product_id = request.data.get('product_id')
-        batch = request.data.get('batch')
-        in_use = request.data.get('in_use')
-        expiry = request.data.get('expiry')
-        opened_on = request.data.get('opened')
+        data = request.data.copy()
+
+        # Convert date strings to date objects
+        if not data['expiry']:
+            data['expiry'] = None
+        if not data['opened_on']:
+            data['opened_on'] = None
 
         try:
             # create an instance of the stock item and relating it to the relevant product using that data
-            stock_item = ProductItem.objects.create(product_id=product_id, batch=batch, in_use=in_use, expiry=expiry,
-                                                    opened=opened_on)
+            stock_item = ProductItem.objects.create(**data)
 
+            print(stock_item)
             # create a serializer instance with the newly created stock_item instance
             serializer = ProductItemSerializer(stock_item)
-
+            print(serializer.data)
             # return a successful response along with the stock_item representation and an HTTP 200 status code once the
             # stock item is successfully created
             return Response({"message": f"Stock item {stock_item.id} created successfully",
