@@ -59,6 +59,7 @@ class Product(models.Model):
     UNITS = [
         ('L', 'Litres, l'),
         ('ML', 'Milliliters, ml'),
+        ('UL', 'Microliters, ml'),
         ('KG', 'Kilograms, kg'),
         ('G', 'Grams, g'),
         ('MG', 'Milligrams, mg'),
@@ -89,7 +90,7 @@ class Product(models.Model):
     stock = models.PositiveIntegerField(null=True, blank=True)
     storage = models.CharField('storage conditions', max_length=20,
                                choices=STORAGE)
-    location = models.CharField('exact location', max_length=100, null=True, blank=True)
+    location = models.CharField('exact location', max_length=200, null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.CharField('currency', max_length=20, choices=CURRENCY, null=True, blank=True)
     previous_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

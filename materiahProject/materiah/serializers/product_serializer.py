@@ -54,14 +54,10 @@ class ProductItemSerializer(serializers.ModelSerializer):
 
         :return: The representation of the object.
         """
-        print('here')
-        print(instance)
         representation = super(ProductItemSerializer, self).to_representation(instance)
-        print(representation)
         if representation.get('order') is None:
             # If 'order' key exist and its value is None, remove 'order' from dictionary
             representation.pop('order')
-        print('there')
         return representation
 
 
