@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django_rest_passwordreset',
     'corsheaders',
     'storages',
+    'django_cryptography',
 ]
 
 MIDDLEWARE = [
@@ -92,7 +93,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
-        'user': '1000/hour',
+        'user': '10000/hour',
         'check_username': '20/hour',
         'check_email': '20/hour',
         'check_phone': '20/hour',
@@ -135,6 +136,11 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
+
+GOOGLE_OAUTH2_CLIENT_ID = os.environ.get('GOOGLE_OAUTH2_CLIENT_ID')
+GOOGLE_OAUTH2_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH2_CLIENT_SECRET')
+GOOGLE_OAUTH2_PROJECT_ID = os.environ.get('GOOGLE_OAUTH2_PROJECT_ID')
+GOOGLE_OAUTH2_REDIRECT_URI = os.environ.get('GOOGLE_OAUTH2_REDIRECT_URI')
 
 # Amazon SES Email Configuration
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
