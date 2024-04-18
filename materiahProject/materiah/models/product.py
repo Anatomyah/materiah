@@ -86,7 +86,7 @@ class Product(models.Model):
     name = models.CharField(max_length=255, db_index=True)
     category = models.CharField(max_length=255, choices=CATEGORIES)
     unit = models.CharField('measurement unit', max_length=50, choices=UNITS)
-    unit_quantity = models.PositiveIntegerField()
+    unit_quantity = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     stock = models.PositiveIntegerField(null=True, blank=True)
     storage = models.CharField('storage conditions', max_length=20,
                                choices=STORAGE)
