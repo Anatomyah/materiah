@@ -1,9 +1,6 @@
-from datetime import datetime
-
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.utils.dateparse import parse_date
 from rest_framework import filters, status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -209,7 +206,6 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         # Generate headers for the success response
         headers = self.get_success_headers(serializer.data)
-
         # Prepare data for the response
         return_data = serializer.data
 
@@ -243,6 +239,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         :rtype: Response
 
         """
+
         # Fetch the Product instance that needs to be updated
         instance = self.get_object()
 
