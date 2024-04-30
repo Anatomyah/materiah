@@ -72,7 +72,6 @@ class ExpiryNotificationSerializer(serializers.ModelSerializer):
         """
         representation = super(ExpiryNotificationSerializer, self).to_representation(instance)
 
-        print(representation)
         product_item = instance.product_item
         representation['product_item'] = {
             'id': product_item.id, 'batch': product_item.batch, 'in_use': product_item.in_use,
