@@ -5,3 +5,4 @@ from .quote import Quote, QuoteItem
 from .supplier import Supplier
 from .user import UserProfile, SupplierUserProfile
 from .file import FileUploadStatus
+from .google_api import GoogleCredentials
