@@ -200,9 +200,14 @@ class OrderNotifications(models.Model):
 
 class ExpiryNotifications(models.Model):
     """
-    Class representing expiry notifications for product items.
+       Class representing expiry notifications for product items.
 
-    Attributes:
-        product_item (ForeignKey): The product item associated with the expiry notification.
-    """
-    product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None, unique=True)
+       Each product item can only have one expiry notification associated with it.
+
+       Attributes:
+           product_item (OneToOneField): The product item associated with the expiry notification.
+       """
+    product_item = models.OneToOneField(ProductItem, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Expiry notification for {self.product_item}"
