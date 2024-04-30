@@ -500,10 +500,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             # create an instance of the stock item and relating it to the relevant product using that data
             stock_item = ProductItem.objects.create(**data)
 
-            print(stock_item)
             # create a serializer instance with the newly created stock_item instance
             serializer = ProductItemSerializer(stock_item)
-            print(serializer.data)
             # return a successful response along with the stock_item representation and an HTTP 200 status code once the
             # stock item is successfully created
             return Response({"message": f"Stock item {stock_item.id} created successfully",

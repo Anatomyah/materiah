@@ -252,10 +252,8 @@ class ExpiryNotificationViewSet(viewsets.ModelViewSet):
         # Fetch the supplier ID provided in the parameters
         supplier_id_param = self.request.query_params.get('supplier_id', None)
 
-        print('supplier_id_param: ', supplier_id_param)
         # If a specific supplier's ID is provided, only fetch their products
         if supplier_id_param:
             queryset = queryset.filter(product_item__product__supplier__id=supplier_id_param)
 
-        print(queryset)
         return queryset.order_by('id')

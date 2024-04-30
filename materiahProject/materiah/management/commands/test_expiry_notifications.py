@@ -79,6 +79,5 @@ class Command(BaseCommand):
                 # Delete sample product after creating notifications
                 new_product.delete()
 
-                print('Successfully created product, product items, and expiry notifications')
         except Exception as e:
             print(f'An error occurred: {e}')

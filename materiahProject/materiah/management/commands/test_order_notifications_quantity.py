@@ -41,8 +41,6 @@ class QuantityCommand(BaseCommand):
                 order_notifications = OrderNotifications.objects.filter(product_id__in=product_ids)
 
                 # Print order notifications and a success message
-                print(order_notifications)
-                print('Successfully created order quantity statistics and refreshed notifications')
         except Exception as e:
             # Print the details of any exceptions that were raised during execution
             print(f'An error occurred: {e}')
