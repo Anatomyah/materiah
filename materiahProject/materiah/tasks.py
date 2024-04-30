@@ -79,8 +79,8 @@ def create_expiry_notifications():
     Creates expiry notifications for relevant stock items.
 
     This method filters the ProductItems to only those items whose expiry date precedes the current date or falls
-    within the next six months. It then iterates through each of the relevant stock items and creates expiry
-    notifications for them.
+    within the next six months and does not have an existing expiry notification.
+    It then iterates through each of the relevant stock items and creates expiry notifications for them.
 
     :return: None
     """
@@ -88,11 +88,13 @@ def create_expiry_notifications():
     expiry_date = current_date + timedelta(days=180)
 
     # Filter the ProductItem to only those items which expiry date precedes the current date or falls within the next
-    # six months
+    # six months and do not have an existing expiry notification
     relevant_stock_items = ProductItem.objects.filter(
-        Q(expiry__range=(current_date, expiry_date)) | Q(expiry__lt=current_date) & Q(expirynotifications__isnull=True))
+        (Q(expiry__range=(current_date, expiry_date)) | Q(expiry__lt=current_date)),
+        expirynotifications__isnull=True  # Ensure no notification already exists
+    )
 
-    # Iterate through each of the relevant stock items and create and create expiry notifications for them
+    # Iterate through each of the relevant stock items and create expiry notifications
     for item in relevant_stock_items:
         ExpiryNotifications.objects.create(product_item=item)
 

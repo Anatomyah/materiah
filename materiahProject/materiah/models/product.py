@@ -205,4 +205,4 @@ class ExpiryNotifications(models.Model):
     Attributes:
         product_item (ForeignKey): The product item associated with the expiry notification.
     """
-    product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None)
+    product_item = models.ForeignKey(ProductItem, on_delete=models.CASCADE, default=None, unique=True)
