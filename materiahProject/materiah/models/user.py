@@ -21,7 +21,8 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     phone_prefix = models.CharField(max_length=3, choices=PHONE_PREFIX_CHOICES, default='050')
     phone_suffix = models.CharField(max_length=7, validators=[validate_phone_suffix])
-
+    gmail_configured = models.BooleanField(default=False)
+    
     def __str__(self):
         return f"{self.user}"
 

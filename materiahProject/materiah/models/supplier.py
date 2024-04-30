@@ -35,6 +35,25 @@ class Supplier(models.Model):
             self.phone_prefix = None
             self.phone_suffix = None
         super(Supplier, self).save(*args, **kwargs)
-        
+
     class Meta:
         unique_together = ('phone_prefix', 'phone_suffix')
+
+
+class SupplierSecondaryEmails(models.Model):
+    """
+    Represents a secondary email for a supplier. Ensures unique identification through
+    unique email and supplier foreign key.
+
+    Attributes:
+        supplier (ForeignKey): A reference to the Supplier that the secondary email belongs to.
+        email (EmailField): The email address of the supplier. Unique.
+
+    Returns:
+        str: A string representation of the secondary email.
+    """
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='secondary_emails')
+    email = models.EmailField(unique=True)
+
+    def __str__(self):
+        return f"{self.email}"

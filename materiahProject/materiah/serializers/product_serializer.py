@@ -172,15 +172,8 @@ class ProductSerializer(serializers.ModelSerializer):
         """
         instance = super().update(instance, validated_data)
 
-        # Create a copy of the context data
-        context_data = self.context.get('view').request.data
-        # Then, check if the are images to delete and remove the redundant brackets added by the serializer
-        if 'images_to_delete[]' in context_data:
-            context_data['images_to_delete'] = context_data['images_to_delete[]']
-            del context_data['images_to_delete[]']
-
         # Get the image details that are to be deleted from the context data
-        images_to_delete = context_data.get('images_to_delete')
+        images_to_delete = self.context.get('view').request.data.get('images_to_delete[]', None)
 
         # If there are any images to be deleted, check and delete them
         if images_to_delete:
