@@ -72,13 +72,20 @@ class ExpiryNotificationSerializer(serializers.ModelSerializer):
         """
         representation = super(ExpiryNotificationSerializer, self).to_representation(instance)
 
+        print(representation)
         product_item = instance.product_item
         representation['product_item'] = {
             'id': product_item.id, 'batch': product_item.batch, 'in_use': product_item.in_use,
             'expiry': product_item.expiry,
             'product': {'id': product_item.product.id, 'name': product_item.product.name,
                         'cat_num': product_item.product.cat_num, 'supplier': product_item.product.supplier.id},
-            'order': {'id': product_item.order_item.order.id, 'received': product_item.order_item.order.arrival_date}
+            # 'order': {'id': product_item.order_item.order.id, 'received': product_item.order_item.order.arrival_date}
 
         }
+
+        # If the product is related to an order, add it to the representation
+        if product_item.order_item:
+            representation['product_item']['order'] = {'id': product_item.order_item.order.id,
+                                                       'received': product_item.order_item.order.arrival_date}
+            
         return representation
