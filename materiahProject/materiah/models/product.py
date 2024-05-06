@@ -94,7 +94,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.CharField('currency', max_length=20, choices=CURRENCY, null=True, blank=True)
     previous_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    url = models.URLField()
+    url = models.URLField(null=True, blank=True)
     manufacturer = models.ForeignKey(to=Manufacturer, on_delete=models.CASCADE, null=True, blank=True)
     supplier = models.ForeignKey(to=Supplier, on_delete=models.CASCADE)
     supplier_cat_item = models.BooleanField(default=False)
