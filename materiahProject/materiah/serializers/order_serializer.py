@@ -449,7 +449,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
             # Update the average quantity of the received product
             prev_quantity_avg = product_statistics.avg_order_quantity if updated_order_count > 1 else 0
-            new_quantity_avg = (prev_quantity_avg * (updated_order_count - 1) + quantity) / updated_order_count
+            new_quantity_avg = (prev_quantity_avg * (updated_order_count - 1) + int(quantity)) / updated_order_count
             product_statistics.avg_order_quantity = new_quantity_avg
 
             # Set the new last_ordered fields
@@ -553,7 +553,7 @@ class OrderSerializer(serializers.ModelSerializer):
         if not created:
             OrderSerializer.delete_notification(inventory_product)
             OrderSerializer.update_product_statistics_and_quantity_on_create(product=inventory_product,
-                                                                             quantity=quote_quantity,
+                                                                             quantity=received_quantity,
                                                                              update_stock=update_stock)
 
         # Finally, return the inventory product (either the newly created one or the updated existing one)
