@@ -57,7 +57,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quote
         fields = ['id', 'quote_url', 'supplier', 'request_date', 'creation_date', 'last_updated', 'items',
-                  'status', 'order']
+                  'status', 'corporate_demand_ref', 'budget', 'order']
 
     @staticmethod
     def get_supplier(obj):
@@ -251,7 +251,6 @@ class QuoteSerializer(serializers.ModelSerializer):
         items_data = json.loads(self.context['request'].data.get('items', '[]'))
         # Try to extract 'quote_file_type' from the request data
         quote_file_type = self.context.get('request').data.get('quote_file_type')
-
         # Iterate over all the items in items_data
         for item_data in items_data:
             # Convert the price and quantity values to appropriate types
@@ -303,6 +302,10 @@ class QuoteSerializer(serializers.ModelSerializer):
             if changes:
                 quote_item.save()
 
+        # Fetch and store the corporate demand reference and budget identifier into the object
+        instance.corporate_demand_ref = validated_data.get('corporate_demand_ref', None)
+        instance.budget = validated_data.get('budget', None)
+
         # If quote_file_type is found in request data
         if quote_file_type:
             # If a quote URL already exists for the quote instance, delete the existing file from the storage
@@ -335,7 +338,9 @@ class QuoteSerializer(serializers.ModelSerializer):
         :rtype: dict
         """
         return {
-            query_dict.get('supplier', '[]'): query_dict.get('items', '[]')}
+            query_dict.get('supplier', '[]'): query_dict.get('items', '[]'),
+            'corporate_demand_ref': query_dict.get('corporate_demand_ref', None),
+            'budget': query_dict.get('budget', None)}
 
     def create_single_quote(self, request_data, quote_file_type=None, manual_creation=False):
         """
@@ -362,7 +367,6 @@ class QuoteSerializer(serializers.ModelSerializer):
         supplier_emails = [supplier.email]
         # Create an empty list to hold the data that will be emailed to the supplier
         quote_email_data = []
-
         # Try to fetch the supplier contact email, if exists
         try:
             supplier_contact_email = supplier.supplieruserprofile.user.email
@@ -375,8 +379,10 @@ class QuoteSerializer(serializers.ModelSerializer):
         if manual_creation:
             # Parse the items from the request data
             items = json.loads(request_data[supplier_id])
-            # Create a quote with status as 'RECEIVED'
-            quote = Quote.objects.create(supplier=supplier, status='RECEIVED')
+            # Create a quote with status as 'RECEIVED' and store the validated data
+            quote = Quote.objects.create(supplier=supplier, status='RECEIVED',
+                                         corporate_demand_ref=request_data.get('corporate_demand_ref', None),
+                                         budget=request_data.get('budget', None))
         # If not manual creation, directly get items from the request_data
         else:
             items = request_data[supplier_id]

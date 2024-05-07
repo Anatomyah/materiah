@@ -9,13 +9,14 @@ class Order(models.Model):
         Represents an order in the system.
 
         This model stores information about an order, including its association with a quote,
-        the expected arrival date, and the recipient of the order.
+        the expected arrival date, the recipient of the order, and the corporate reference number.
 
         Attributes:
         - quote (OneToOneField): A one-to-one relationship to the 'Quote' model. This field can be null,
           allowing for orders that are not directly associated with a quote.
         - arrival_date (DateField): The expected date of arrival for the order.
         - received_by (CharField): The name of the individual who received the order. This field can be null.
+        - corporate_order_ref (CharField): Corporate reference number . This field can be null.
 
         Methods:
         - __str__(self): Returns the order ID as a string representation of the object.
@@ -23,6 +24,7 @@ class Order(models.Model):
     quote = models.OneToOneField(to=Quote, on_delete=models.PROTECT, null=True)
     arrival_date = models.DateField()
     received_by = models.CharField(max_length=50, null=True)
+    corporate_order_ref = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
         return f"{self.id}"

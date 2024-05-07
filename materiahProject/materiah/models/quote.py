@@ -19,6 +19,8 @@ class Quote(models.Model):
            quote_url (URLField): URL of the quote, auto-generated from S3 key if not provided.
            s3_quote_key (CharField): Key for the quote file in S3 bucket.
            status (CharField): Current status of the quote.
+           budget (CharField): The budget identifier from which the demand was created.
+           corporate_demand_ref (CharField): The corporate identifier for the quote demand.
        """
 
     STATUS_CHOICES = [
@@ -34,6 +36,8 @@ class Quote(models.Model):
     quote_url = models.URLField(max_length=1024, editable=False, blank=True)
     s3_quote_key = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='REQUESTED')
+    budget = models.CharField(max_length=50, blank=True, null=True)
+    corporate_demand_ref = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
         return f"{self.id}"

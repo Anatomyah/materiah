@@ -120,7 +120,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['id', 'quote', 'arrival_date', 'items', 'images', 'received_by']
+        fields = ['id', 'quote', 'arrival_date', 'items', 'images', 'received_by', 'corporate_order_ref']
 
     def to_representation(self, instance):
         """
@@ -163,7 +163,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # Fetching the request context
         request = self.context.get('request', None)
-
         # Extracting the items from the request data and parsing it into JSON
         items_data = json.loads(request.data.get('items', '[]'))
 
@@ -260,6 +259,7 @@ class OrderSerializer(serializers.ModelSerializer):
         # Update basic order details
         instance.arrival_date = validated_data.get('arrival_date', instance.arrival_date)
         instance.received_by = validated_data.get('received_by', instance.received_by)
+        instance.corporate_order_ref = validated_data.get('corporate_order_ref', instance.corporate_order_ref)
 
         # Link order to its related quote
         related_quote = validated_data.pop('quote')
@@ -292,6 +292,7 @@ class OrderSerializer(serializers.ModelSerializer):
             presigned_urls = self.handle_images(images, instance)  # Generate URLs for new images
             self.context['presigned_urls'] = presigned_urls  # Store the URLs in context for further use
 
+        instance.save()
         return instance
 
     @staticmethod
