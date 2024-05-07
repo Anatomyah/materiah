@@ -460,7 +460,12 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # If the stock needs to be updated (flag update_stock is true), increase it with the ordered quantity
         if update_stock:
-            product.stock += int(quantity)
+            # If the product's stock value is null, save the incoming quantity, otherwise, add it.
+            current_stock = product.stock
+            if current_stock:
+                product.stock += int(quantity)
+            else:
+                product.stock = int(quantity)
             product.save()
 
         # Save the updated statistics
