@@ -198,7 +198,6 @@ class QuoteSerializer(serializers.ModelSerializer):
 
             # If quote_file_type is provided and request is for manual creation
             if quote_file_type:
-
                 # Call the create_single_quote method providing the necessary data
                 # and obtain the single quote and presigned URL
                 quote_and_presigned_url = self.create_single_quote(
@@ -378,7 +377,6 @@ class QuoteSerializer(serializers.ModelSerializer):
             items = json.loads(request_data[supplier_id])
             # Create a quote with status as 'RECEIVED'
             quote = Quote.objects.create(supplier=supplier, status='RECEIVED')
-
         # If not manual creation, directly get items from the request_data
         else:
             items = request_data[supplier_id]
@@ -409,11 +407,14 @@ class QuoteSerializer(serializers.ModelSerializer):
                     # If product does not exist in database, raise validation error
                     raise serializers.ValidationError(str(e))
 
-            # Prepare quote data to be sent to supplier via email
-            quote_email_data.append({'cat_num': f'{cat_num}', 'name': f'{product_name}', 'quantity': item['quantity']})
+            if not manual_creation:
+                # Prepare quote data to be sent to supplier via email
+                quote_email_data.append(
+                    {'cat_num': f'{cat_num}', 'name': f'{product_name}', 'quantity': item['quantity']})
 
+        if not manual_creation:
             # Send an email to supplier with quote data
-        self.send_email(quote_email_data, supplier_emails)
+            self.send_email(quote_email_data, supplier_emails)
 
         # If quote_file_type exists then update quote file
         if quote_file_type:
