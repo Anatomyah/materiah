@@ -19,10 +19,13 @@ class Product(models.Model):
         - category (CharField): The category of the product, chosen from predefined CATEGORIES.
         - unit (CharField): The unit of measurement for the product, chosen from predefined UNITS.
         - unit_quantity (PositiveIntegerField): The volume or quantity of the product.
+        - units_per_main_unit (PositiveIntegerField): Number of sub-units contained in each primary unit, helps in
+         precise stock management.
         - stock (PositiveIntegerField): The current stock level of the product. Can be null or blank.
         - storage (CharField): Storage conditions for the product, chosen from predefined STORAGE options.
         - price (DecimalField): The current price of the product. Can be null or blank.
-        - previous_price (DecimalField): The previous price of the product for price change tracking. Can be null or blank.
+        - previous_price (DecimalField): The previous price of the product for price change tracking. Can be null or
+         blank.
         - url (URLField): A URL to more information about the product.
         - manufacturer (ForeignKey): A foreign key to the 'Manufacturer' model.
         - supplier (ForeignKey): A foreign key to the 'Supplier' model.
@@ -87,6 +90,9 @@ class Product(models.Model):
     category = models.CharField(max_length=255, choices=CATEGORIES)
     unit = models.CharField('measurement unit', max_length=50, choices=UNITS)
     unit_quantity = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    units_per_main_unit = models.PositiveIntegerField(null=True, blank=True,
+                                                      help_text="Number of units per main unit(Example: 10 packages "
+                                                                "per a main unit of a single box)")
     stock = models.PositiveIntegerField(null=True, blank=True)
     storage = models.CharField('storage conditions', max_length=20,
                                choices=STORAGE)
@@ -107,18 +113,17 @@ class Product(models.Model):
 
 
 class ProductItem(models.Model):
-    """Represents a product stock item of a given product.
+    """
+    Represents a product stock item of a given product.
 
-    :ivar product: The product associated with the item.
-    :vartype product: Product
-    :ivar order_item: The order_item associated with the item.
-    :vartype order_item: OrderItem
-    :ivar batch: The batch number of the item.
-    :vartype batch: str
-    :ivar in_use: Indicates if the item is currently in use.
-    :vartype in_use: bool
-    :ivar expiry: The expiry date of the item.
-    :vartype expiry: date
+    Attributes:
+        product (ForeignKey): The product associated with the item.
+        order_item (ForeignKey): The order item associated with the item. Can be null or blank.
+        batch (CharField): The batch number of the item. Can be null or blank.
+        in_use (BooleanField): Indicates if the item is currently in use.
+        expiry (DateField): The expiry date of the item. Can be null or blank.
+        opened_on (DateField): The date the item was opened. Can be null or blank.
+        item_stock (PositiveIntegerField): The stock level of the item, initialized based on the product's units per main unit.
     """
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     order_item = models.ForeignKey('OrderItem', on_delete=models.CASCADE, default=None, null=True, blank=True)
@@ -126,6 +131,19 @@ class ProductItem(models.Model):
     in_use = models.BooleanField(default=False)
     expiry = models.DateField(blank=True, null=True)
     opened_on = models.DateField(blank=True, null=True)
+    item_stock = models.PositiveIntegerField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        """
+        Overridden save method to automatically set the item stock based on the product's units per main unit.
+        """
+        if not self.id:  # Checking if this is a new instance being created
+            if self.product.units_per_main_unit:
+                self.item_stock = self.product.units_per_main_unit
+        super(ProductItem, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Product Item for {self.product.name}, Batch: {self.batch}"
 
 
 class ProductImage(models.Model):

@@ -574,3 +574,36 @@ class ProductViewSet(viewsets.ModelViewSet):
             # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
             # the error message
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['PATCH'])
+    def update_product_item_stock(self, request):
+        """
+        This method updates the stock of a product item.
+
+        :param request: The HTTP request object containing the data to update the stock.
+            - item_id: The ID of the product item to update.
+            - updated_stock: The new stock value to update the item with.
+
+        :return: A HTTP response object with a success or error message along with an appropriate status code.
+            - If the stock item is successfully updated, the response will have a message "Stock item <item_id> updated successfully"
+              with a status code of 200 (OK).
+            - If an exception occurs during the update process, the response will have an error message describing the exception,
+              along with a status code of 500 (Internal Server Error).
+        """
+        # store the necessary data into variables to create the stock item
+        item_id = request.data.get('item_id')
+        updated_stock = request.data.get('updated_stock')
+        try:
+            # fetch the ProductItem instance matching the item_id and update it's stock
+            stock_item = ProductItem.objects.get(id=item_id)
+            stock_item.item_stock = updated_stock
+            stock_item.save()
+
+            # return a successful response along with HTTP 200 status code once the ProductItem is updated
+            return Response({"message": f"Stock item {stock_item.id} updated successfully"},
+                            status=status.HTTP_200_OK)
+
+        except Exception as e:
+            # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
+            # the error message
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
