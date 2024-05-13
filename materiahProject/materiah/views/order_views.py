@@ -37,7 +37,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['id', 'quote__id', 'orderitem__quote_item__product__name',
-                     'orderitem__quote_item__product__cat_num', 'quote__supplier_name']
+                     'orderitem__quote_item__product__cat_num', 'quote__supplier__name']
 
     def get_permissions(self):
         """

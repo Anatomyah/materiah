@@ -78,8 +78,11 @@ class QuoteViewSet(viewsets.ModelViewSet):
         # Prepare cache key using base key ('quote_list') and additional parameters based on request query parameters
         params = [
             ('page_num', request.query_params.get('page_num', None)),  # Get page number from request
-            ('search', request.query_params.get('search', None))  # Get search phrase from request
+            ('search', request.query_params.get('search', None)),  # Get search phrase from request
+            ('fulfilled_filter', request.query_params.get('fulfilled_filter', False))  # Get fulfilled filter param from
+            # request
         ]
+
         cache_key = f"quote_list"
         for param, value in params:
             if value:
@@ -117,11 +120,21 @@ class QuoteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns the queryset of all Quote objects ordered by their id.
+            Returns the queryset of all Quote objects, applying filters based on the action.
+            For list actions, it applies the 'fulfilled_filter'. For retrieve actions, it returns all quotes.
+            """
+        queryset = Quote.objects.all().order_by('id')
 
-        :return: The queryset of all Quote objects ordered by id.
-        """
-        return Quote.objects.all().order_by('id')
+        # Apply filters only for list actions
+        if self.action == 'list':
+            fulfilled_filter = self.request.query_params.get('fulfilled_filter', None)
+
+            if fulfilled_filter:
+                queryset = queryset.filter(status='FULFILLED')
+            else:
+                queryset = queryset.exclude(status='FULFILLED')
+
+        return queryset
 
     def create(self, request, *args, **kwargs):
         """
