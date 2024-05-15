@@ -19,7 +19,7 @@ class Product(models.Model):
         - category (CharField): The category of the product, chosen from predefined CATEGORIES.
         - unit (CharField): The unit of measurement for the product, chosen from predefined UNITS.
         - unit_quantity (PositiveIntegerField): The volume or quantity of the product.
-        - units_per_main_unit (PositiveIntegerField): Number of sub-units contained in each primary unit, helps in
+        - units_per_sub_unit (PositiveIntegerField): Number of sub-units contained in each primary unit, helps in
          precise stock management.
         - stock (PositiveIntegerField): The current stock level of the product. Can be null or blank.
         - storage (CharField): Storage conditions for the product, chosen from predefined STORAGE options.
@@ -90,9 +90,9 @@ class Product(models.Model):
     category = models.CharField(max_length=255, choices=CATEGORIES)
     unit = models.CharField('measurement unit', max_length=50, choices=UNITS)
     unit_quantity = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
-    units_per_main_unit = models.PositiveIntegerField(null=True, blank=True,
-                                                      help_text="Number of units per main unit(Example: 10 packages "
-                                                                "per a main unit of a single box)")
+    units_per_sub_unit = models.PositiveIntegerField(null=True, blank=True,
+                                                     help_text="Number of units per main unit(Example: 10 packages "
+                                                               "per a main unit of a single box)")
     stock = models.PositiveIntegerField(null=True, blank=True)
     storage = models.CharField('storage conditions', max_length=20,
                                choices=STORAGE)
@@ -104,6 +104,15 @@ class Product(models.Model):
     manufacturer = models.ForeignKey(to=Manufacturer, on_delete=models.CASCADE, null=True, blank=True)
     supplier = models.ForeignKey(to=Supplier, on_delete=models.CASCADE)
     supplier_cat_item = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        """
+        Overridden save method to update item stock for related ProductItems.
+        """
+        super().save(*args, **kwargs)
+        for item in self.productitem_set.all():
+            item.item_stock = self.unit_quantity
+            item.save()
 
     def __str__(self):
         return f"{self.cat_num}"
@@ -138,8 +147,8 @@ class ProductItem(models.Model):
         Overridden save method to automatically set the item stock based on the product's units per main unit.
         """
         if not self.id:  # Checking if this is a new instance being created
-            if self.product.units_per_main_unit:
-                self.item_stock = self.product.units_per_main_unit
+            if self.product.units_per_sub_unit:
+                self.item_stock = self.product.unit_quantity
         super(ProductItem, self).save(*args, **kwargs)
 
     def __str__(self):
