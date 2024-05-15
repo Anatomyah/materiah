@@ -38,7 +38,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = MateriahPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'cat_num', 'supplier__name', 'manufacturer__name']
+    search_fields = ['name', 'cat_num', 'supplier__name', 'manufacturer__name', 'unit']
 
     def get_permissions(self):
         """
