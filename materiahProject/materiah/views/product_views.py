@@ -488,9 +488,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         :return: The HTTP response with the created stock item information or an error.
         """
 
+        # Create a copy of the request data
         data = request.data.copy()
 
-        # Convert date strings to date objects
+        # convert empty strings to None to prevent serializer errors
         if not data['expiry']:
             data['expiry'] = None
         if not data['opened_on']:
@@ -523,20 +524,23 @@ class ProductViewSet(viewsets.ModelViewSet):
         :rtype: Response
         """
 
-        # store the necessary data into variables to create the stock item
+        # Extract the item ID to retrieve and update it
         item_id = request.data.get('item_id')
-        batch = request.data.get('batch')
-        in_use = request.data.get('in_use', False)
-        expiry = request.data.get('expiry')
-        opened_on = request.data.get('opened')
+
+        # Create a copy of the request data
+        data = request.data.copy()
+
+        # convert empty strings to None to prevent serializer errors
+        if not data['expiry']:
+            data['expiry'] = None
+        if not data['opened_on']:
+            data['opened_on'] = None
 
         try:
             # fetch the ProductItem instance matching the item_id and update it's fields with the updated data
             stock_item = ProductItem.objects.get(id=item_id)
-            stock_item.batch = batch
-            stock_item.in_use = in_use
-            stock_item.expiry = expiry
-            stock_item.opened_on = opened_on
+            for key, value in data.items():
+                setattr(stock_item, key, value)
             stock_item.save()
 
             # return a successful response along with HTTP 200 status code once the ProductItem is updated
