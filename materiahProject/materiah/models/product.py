@@ -53,6 +53,7 @@ class Product(models.Model):
         ('Hormone', 'Hormone'),
         ('Medication', 'Medication'),
         ('Antibiotic', 'Antibiotic'),
+        ('Kit', 'Kit'),
         ('Plastics', 'Plastics'),
         ('Glassware', 'Glassware'),
         ('Sanitary', 'Sanitary'),
@@ -67,6 +68,7 @@ class Product(models.Model):
         ('G', 'Grams, g'),
         ('MG', 'Milligrams, mg'),
         ('UG', 'Micrograms, µg'),
+        ('Reactions', 'Reactions'),
         ('Package', 'Package'),
         ('Box', 'Box')
     ]
@@ -76,6 +78,7 @@ class Product(models.Model):
         ('-20', '-20'),
         ('-40', '-40'),
         ('-80', '-80'),
+        ('Room Temperature', 'Room Temperature'),
         ('Other', 'Other')
     ]
 
