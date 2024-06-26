@@ -11,7 +11,7 @@ from .product_serializer import ProductSerializer
 from .quote_serializer import QuoteSerializer
 from ..s3 import create_presigned_post, delete_s3_object
 from ..models import Quote, QuoteItem, OrderNotifications, ProductOrderStatistics, Product, Order, OrderItem, \
-    OrderImage, ProductItem
+    OrderImage, StockItem
 from ..models.file import FileUploadStatus
 
 
@@ -70,9 +70,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
         - batch: The batch number of the stock item.
         - expiry: The expiry date of the stock item.
         """
-        if ProductItem.objects.filter(order_item=obj).exists():
-            product_items = ProductItem.objects.filter(order_item=obj)
-            return [{'id': item.id, 'batch': item.batch, 'expiry': item.expiry} for item in product_items]
+        if StockItem.objects.filter(order_item=obj).exists():
+            stock_items = StockItem.objects.filter(order_item=obj)
+            return [{'id': item.id, 'batch': item.batch, 'expiry': item.expiry} for item in stock_items]
         else:
             return []
 
@@ -707,7 +707,7 @@ class OrderSerializer(serializers.ModelSerializer):
             if stock_items:
                 # First, create stock items using the data sent
                 for i in range(min(quantity, len(stock_items))):
-                    item = ProductItem(
+                    item = StockItem(
                         product=product,
                         order_item=order_item,
                         batch=stock_items[i].get('batch', None),
@@ -720,7 +720,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 # without batch and expiry data
                 additional_items_count = quantity - len(stock_items)
                 if additional_items_count > 0:
-                    additional_items = [ProductItem(product=product, order_item=order_item) for _ in
+                    additional_items = [StockItem(product=product, order_item=order_item) for _ in
                                         range(additional_items_count)]
 
                     items.extend(additional_items)
@@ -728,11 +728,11 @@ class OrderSerializer(serializers.ModelSerializer):
             # Scenario 2: Stock items data not provided
             else:
                 # Create stock items without expiry or batch data matching the quantity value
-                items = [ProductItem(product=product, order_item=order_item) for _ in
+                items = [StockItem(product=product, order_item=order_item) for _ in
                          range(quantity)]
 
             # Bulk create the ProductItem objects via the items list
-            ProductItem.objects.bulk_create(items)
+            StockItem.objects.bulk_create(items)
 
         # If it's a negative number, delete that amount of stock items
         else:
@@ -741,10 +741,10 @@ class OrderSerializer(serializers.ModelSerializer):
                 items_to_delete = []
                 # Use that stock items data to delete stock items with matching batch numbers and expiry dates
                 for i in range(min(quantity, len(stock_items))):
-                    item = ProductItem.objects.filter(product=product,
-                                                      order_item=order_item,
-                                                      batch=stock_items[i].get('batch', None),
-                                                      expiry=stock_items[i].get('expiry', None))
+                    item = StockItem.objects.filter(product=product,
+                                                    order_item=order_item,
+                                                    batch=stock_items[i].get('batch', None),
+                                                    expiry=stock_items[i].get('expiry', None))
 
                     items_to_delete.append(item)
 
@@ -752,14 +752,14 @@ class OrderSerializer(serializers.ModelSerializer):
                 # order without specifying batch number and expiry date
                 additional_items_count = abs(quantity) - len(stock_items)
                 if additional_items_count > 0:
-                    additional_items = ProductItem.objects.filter(product=product, order_item=order_item)
+                    additional_items = StockItem.objects.filter(product=product, order_item=order_item)
 
                     items_to_delete.extend(additional_items)
 
             # Scenario 2: Stock items data not provided
             else:
                 # Query the DB to fetch related stock items without specifying batch number and expiry date
-                items_to_delete = ProductItem.objects.filter(product=product, order_item=order_item)[:abs(quantity)]
+                items_to_delete = StockItem.objects.filter(product=product, order_item=order_item)[:abs(quantity)]
 
             for item in items_to_delete:
                 item.delete()
@@ -778,7 +778,7 @@ class OrderSerializer(serializers.ModelSerializer):
         :return: None
         """
         for stock_item in stock_items:
-            item = ProductItem.objects.get(id=stock_item['id'])
+            item = StockItem.objects.get(id=stock_item['id'])
             item.batch = stock_item.get('batch', None)
             item.expiry = stock_item.get('expiry', None)
             item.save()

@@ -1,8 +1,6 @@
 from django.core.management.base import BaseCommand
-from django.db import transaction
 
-from ...models import Supplier, Product, ProductItem, ExpiryNotifications
-from ...tasks import create_expiry_notifications
+from ...models import StockItem, ExpiryNotifications
 
 
 class Command(BaseCommand):
@@ -29,55 +27,12 @@ class Command(BaseCommand):
                 """
         # Attempt to create a sample product and its necessary items within a transaction
         try:
-            with transaction.atomic():
-                first_supplier = Supplier.objects.first()
-                product_items = []
-
-                # Create a new product
-                new_product = Product(
-                    cat_num='12345',
-                    name='Sample Product',
-                    category='Medium',
-                    unit='L',
-                    unit_quantity=1,
-                    stock=10,
-                    storage='+4',
-                    price=100.00,
-                    supplier=first_supplier,
-                )
-                new_product.save()
-
-                # Add product items with a valid expiration date
-                for _ in range(2):
-                    product_item = ProductItem(
-                        product=new_product,
-                        batch='notexpired',
-                        expiry='2024-12-01'
-                    )
-                    product_item.save()
-                    product_items.append(product_item)
-
-                # Add product items with an invalid expiration date
-                for _ in range(2):
-                    product_item = ProductItem(
-                        product=new_product,
-                        batch='expired',
-                        expiry='2024-04-01'
-                    )
-                    product_item.save()
-                    product_items.append(product_item)
-
-                # Refresh expiry notifications for the product items
-                create_expiry_notifications()
-
-                # Extract product item id's from product items
-                product_item_ids = [item.id for item in product_items]
-
-                # Query notifications based on product item ids
-                ExpiryNotifications.objects.filter(product_item_id__in=product_item_ids)
-
-                # Delete sample product after creating notifications
-                new_product.delete()
+            ExpiryNotifications.objects.create(product_item_id=272)
+            expiry_notifications = ExpiryNotifications.objects.all()
+            for expiry_notification in expiry_notifications:
+                product_item = StockItem.objects.get(id=expiry_notification.product_item_id)
+                if not product_item.expired:
+                    print('no product')
 
         except Exception as e:
             print(f'An error occurred: {e}')

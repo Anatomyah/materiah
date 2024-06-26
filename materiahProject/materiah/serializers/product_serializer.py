@@ -5,11 +5,11 @@ from rest_framework import serializers
 
 from ..models import Manufacturer, Supplier
 from ..models.file import FileUploadStatus
-from ..models import Product, ProductImage, ProductItem
+from ..models import Product, ProductImage, StockItem
 from ..s3 import create_presigned_post, delete_s3_object
 
 
-class ProductItemSerializer(serializers.ModelSerializer):
+class StockItemSerializer(serializers.ModelSerializer):
     """
     Class: ProductItemSerializer
 
@@ -25,7 +25,7 @@ class ProductItemSerializer(serializers.ModelSerializer):
     order = serializers.SerializerMethodField()
 
     class Meta:
-        model = ProductItem
+        model = StockItem
         fields = '__all__'
 
     @staticmethod
@@ -33,7 +33,7 @@ class ProductItemSerializer(serializers.ModelSerializer):
         """Returns a dictionary with Order ID and arrival date for ProductItem's related Order.
 
         Args:
-            obj (ProductItem): Instance of ProductItem model.
+            obj (StockItem): Instance of ProductItem model.
 
         Returns:
             dict: Dictionary containing Order ID and arrival date, or None if no related Order.
@@ -54,7 +54,7 @@ class ProductItemSerializer(serializers.ModelSerializer):
 
         :return: The representation of the object.
         """
-        representation = super(ProductItemSerializer, self).to_representation(instance)
+        representation = super(StockItemSerializer, self).to_representation(instance)
         if representation.get('order') is None:
             # If 'order' key exist and its value is None, remove 'order' from dictionary
             representation.pop('order')
@@ -92,7 +92,7 @@ class ProductSerializer(serializers.ModelSerializer):
        This serializer has additional methods for handling image uploads including presigned url generation and image deletion.
        """
     images = ProductImageSerializer(source='productimage_set', many=True, read_only=True)
-    items = ProductItemSerializer(source='productitem_set', many=True, read_only=True)
+    items = StockItemSerializer(source='stockitem_set', many=True, read_only=True)
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Manufacturer.objects.all(), required=False, allow_null=True
     )
@@ -105,7 +105,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'cat_num', 'name', 'category', 'unit', 'unit_quantity', 'units_per_sub_unit', 'stock',
             'storage', 'location', 'price', 'currency', 'url', 'manufacturer', 'supplier', 'images', 'items',
-            'supplier_cat_item'
+            'supplier_cat_item', 'notes', 'discount'
         ]
 
     def to_representation(self, instance):
@@ -137,6 +137,12 @@ class ProductSerializer(serializers.ModelSerializer):
         # Call the superclass's create method to handle the creation of the Product instance
         product = super().create(validated_data)
 
+        # If the new product is created with existing stock, create the stock items per that stock amount
+        new_product_stock = validated_data.get('stock', None)
+        if new_product_stock and new_product_stock > 0:
+            for n in range(0, new_product_stock):
+                StockItem.objects.create(product=product)
+
         try:
             # Try to load images from the request data as a JSON format
             images = json.loads(self.context.get('view').request.data.get('images') or '[]')
@@ -163,6 +169,25 @@ class ProductSerializer(serializers.ModelSerializer):
         :return: The updated instance.
         """
         instance = super().update(instance, validated_data)
+
+        # Calculate the updated stock vs the stock item set count
+        if instance.stock is not None:
+            updated_stock = int(instance.stock)
+            stock_items_set_count = StockItem.objects.filter(product=instance).count()
+
+            # If the difference is positive, create stock items accordingly
+            if updated_stock > stock_items_set_count:
+                difference = updated_stock - stock_items_set_count
+                for n in range(0, difference):
+                    StockItem.objects.create(product=instance)
+
+            # If the difference is negative, delete stock items accordingly
+            if updated_stock < stock_items_set_count:
+                stock_items_set = StockItem.objects.filter(product=instance)
+                difference = stock_items_set_count - updated_stock
+                stock_items_to_delete = stock_items_set[:difference]
+                for stock_item in stock_items_to_delete:
+                    stock_item.delete()
 
         # Get the image details that are to be deleted from the context data
         images_to_delete = self.context.get('view').request.data.get('images_to_delete[]', None)

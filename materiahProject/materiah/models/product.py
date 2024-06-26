@@ -6,47 +6,43 @@ from .supplier import Supplier
 
 
 class Product(models.Model):
+    """Product class for managing products in a database.
+
+    Attributes:
+        CATEGORIES (list): List of available categories for products.
+        UNITS (list): List of available measurement units for products.
+        STORAGE (list): List of available storage conditions for products.
+        CURRENCY (list): List of available currencies for products.
+
+    Attributes:
+        cat_num (CharField): The catalogue number of the product. Max length: 255. [db_index=True, unique=True]
+        name (CharField): The name of the product. Max length: 255. [db_index=True]
+        category (CharField): The category of the product. Max length: 255. [choices=CATEGORIES]
+        unit (CharField): The measurement unit of the product. Max length: 50. [choices=UNITS]
+        unit_quantity (DecimalField): The quantity of the measurement unit. Max digits: 10,
+         Decimal places: 4. [null=True, blank=True]
+        units_per_sub_unit (PositiveIntegerField): Number of units per main unit. [null=True, blank=True]
+        stock (PositiveIntegerField): The stock of the product. [null=True, blank=True]
+        storage (CharField): The storage conditions of the product. Max length: 20. [choices=STORAGE]
+        location (CharField): The exact location of the product. Max length: 200. [null=True, blank=True]
+        price (DecimalField): The price of the product. Max digits: 10, Decimal places: 2. [null=True, blank=True]
+        discount (DecimalField): The discount on the product. Max digits: 4, Decimal places: 2. [null=True, blank=True]
+        currency (CharField): The currency of the product. Max length: 20. [choices=CURRENCY, null=True, blank=True]
+        previous_price (DecimalField): The previous price of the product. Max digits: 10, Decimal places:
+        2. [null=True, blank=True]
+        previous_discount (DecimalField): The previous discount on the product. Max digits: 4, Decimal places:
+        2. [null=True, blank=True]
+        url (URLField): The URL of the product. Max length: 500. [null=True, blank=True]
+        manufacturer (ForeignKey): The manufacturer of the product. [on_delete=models.CASCADE, null=True, blank=True]
+        supplier (ForeignKey): The supplier of the product. [on_delete=models.CASCADE]
+        supplier_cat_item (BooleanField): Indicates if the product is a supplier catalog item. [default=False]
+        notes (CharField): Additional notes for the product. Max length: 255. [null=True, blank=True]
     """
-        Represents a product in the system.
-
-        This model stores comprehensive details about products, including catalog numbers, names,
-        categories, units, volumes, stock levels, storage conditions, pricing, URLs, and
-        relationships to manufacturers and suppliers.
-
-        Attributes:
-        - cat_num (CharField): The catalog number of the product, used as a unique identifier.
-        - name (CharField): The name of the product.
-        - category (CharField): The category of the product, chosen from predefined CATEGORIES.
-        - unit (CharField): The unit of measurement for the product, chosen from predefined UNITS.
-        - unit_quantity (PositiveIntegerField): The volume or quantity of the product.
-        - units_per_sub_unit (PositiveIntegerField): Number of sub-units contained in each primary unit, helps in
-         precise stock management.
-        - stock (PositiveIntegerField): The current stock level of the product. Can be null or blank.
-        - storage (CharField): Storage conditions for the product, chosen from predefined STORAGE options.
-        - price (DecimalField): The current price of the product. Can be null or blank.
-        - previous_price (DecimalField): The previous price of the product for price change tracking. Can be null or
-         blank.
-        - url (URLField): A URL to more information about the product.
-        - manufacturer (ForeignKey): A foreign key to the 'Manufacturer' model.
-        - supplier (ForeignKey): A foreign key to the 'Supplier' model.
-        - supplier_cat_item (BooleanField): A flag to indicate whether the product is a supplier catalog item.
-
-        Constants:
-        - CATEGORIES (list): Predefined product categories.
-        - UNITS (list): Predefined units of measurement for products.
-        - STORAGE (list): Predefined storage conditions.
-
-        Methods:
-        - __str__(self): Returns the catalog number as a string representation of the product.
-
-        Meta:
-        - unique_together: Ensures that each combination of 'cat_num' and 'supplier_cat_item' is unique.
-        """
     CATEGORIES = [
         ('Matrix', 'Matrix'),
         ('Medium', 'Medium'),
         ('Supplement', 'Supplement'),
-        ('Powder', 'Powder'),
+        ('Powders', 'Powders'),
         ('Enzyme', 'Enzyme'),
         ('Antibody', 'Antibody'),
         ('Dye', 'Dye'),
@@ -68,7 +64,7 @@ class Product(models.Model):
         ('G', 'Grams, g'),
         ('MG', 'Milligrams, mg'),
         ('UG', 'Micrograms, µg'),
-        ('Reactions', 'Reactions'),
+        ('Assays', 'Reactions/Tests/Assays'),
         ('Package', 'Package'),
         ('Box', 'Box')
     ]
@@ -101,20 +97,23 @@ class Product(models.Model):
                                choices=STORAGE)
     location = models.CharField('exact location', max_length=200, null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    discount = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     currency = models.CharField('currency', max_length=20, choices=CURRENCY, null=True, blank=True)
     previous_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    url = models.URLField(null=True, blank=True)
+    previous_discount = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    url = models.URLField(max_length=500, null=True, blank=True)
     manufacturer = models.ForeignKey(to=Manufacturer, on_delete=models.CASCADE, null=True, blank=True)
     supplier = models.ForeignKey(to=Supplier, on_delete=models.CASCADE)
     supplier_cat_item = models.BooleanField(default=False)
+    notes = models.CharField(max_length=255, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         """
         Overridden save method to update item stock for related ProductItems.
         """
         super().save(*args, **kwargs)
-        for item in self.productitem_set.all():
-            item.item_stock = self.unit_quantity
+        for item in self.stockitem_set.all():
+            item.item_sub_stock = self.unit_quantity
             item.save()
 
     def __str__(self):
@@ -124,7 +123,7 @@ class Product(models.Model):
         unique_together = ('cat_num', 'supplier_cat_item')
 
 
-class ProductItem(models.Model):
+class StockItem(models.Model):
     """
     Represents a product stock item of a given product.
 
@@ -135,7 +134,7 @@ class ProductItem(models.Model):
         in_use (BooleanField): Indicates if the item is currently in use.
         expiry (DateField): The expiry date of the item. Can be null or blank.
         opened_on (DateField): The date the item was opened. Can be null or blank.
-        item_stock (PositiveIntegerField): The stock level of the item, initialized based on the product's units per main unit.
+        item_sub_stock (PositiveIntegerField): The stock level of the item, initialized based on the product's units per main unit.
     """
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     order_item = models.ForeignKey('OrderItem', on_delete=models.CASCADE, default=None, null=True, blank=True)
@@ -143,16 +142,16 @@ class ProductItem(models.Model):
     in_use = models.BooleanField(default=False)
     expiry = models.DateField(blank=True, null=True)
     opened_on = models.DateField(blank=True, null=True)
-    item_stock = models.PositiveIntegerField(null=True, blank=True)
+    item_sub_stock = models.PositiveIntegerField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         """
-        Overridden save method to automatically set the item stock based on the product's units per main unit.
+        Overridden save method to automatically set the item sub stock based on the product's units per main unit.
         """
         if not self.id:  # Checking if this is a new instance being created
             if self.product.units_per_sub_unit:
-                self.item_stock = self.product.unit_quantity
-        super(ProductItem, self).save(*args, **kwargs)
+                self.item_sub_stock = self.product.unit_quantity
+        super(StockItem, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"Product Item for {self.product.name}, Batch: {self.batch}"
@@ -235,9 +234,9 @@ class ExpiryNotifications(models.Model):
        Each product item can only have one expiry notification associated with it.
 
        Attributes:
-           product_item (OneToOneField): The product item associated with the expiry notification.
+           stock_item (OneToOneField): The stock item associated with the expiry notification.
        """
-    product_item = models.OneToOneField(ProductItem, on_delete=models.CASCADE)
+    stock_item = models.OneToOneField(StockItem, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"Expiry notification for {self.product_item}"
+        return f"Expiry notification for {self.stock_item}"

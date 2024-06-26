@@ -62,15 +62,32 @@ class Quote(models.Model):
 
 class QuoteItem(models.Model):
     """
-    Represents individual items within a quote. Links to both the Quote and Product models.
+
+    quote.models.QuoteItem
+
+    Represents a single item in a quote.
 
     Attributes:
-        quote (ForeignKey): Link to the Quote model.
-        product (ForeignKey): Link to the Product model.
-        quantity (PositiveIntegerField): Quantity of the product requested in the quote.
-        price (DecimalField): Price of the product. Optional.
+        quote (ForeignKey): The foreign key to the `Quote` model. It specifies the quote to which this item belongs.
+        product (ForeignKey): The foreign key to the `Product` model. It specifies the product associated with this item.
+        quantity (PositiveIntegerField): The quantity of the product in this item.
+        price (DecimalField): The price of the product.
+        discount (DecimalField): The discount applied to the price of the product.
+        currency (CharField): The currency in which the price is specified.
+
+        CURRENCY (list): A list of tuples representing the currency choices available for the `currency` field.
+
     """
+
+    CURRENCY = [
+        ('NIS', 'NIS'),
+        ('USD', 'USD'),
+        ('EUR', 'EUR'),
+    ]
+
     quote = models.ForeignKey(Quote, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    discount = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    currency = models.CharField('currency', max_length=20, choices=CURRENCY, null=True, blank=True)

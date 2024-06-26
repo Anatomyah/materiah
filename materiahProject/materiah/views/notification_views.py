@@ -254,6 +254,6 @@ class ExpiryNotificationViewSet(viewsets.ModelViewSet):
 
         # If a specific supplier's ID is provided, only fetch their products
         if supplier_id_param:
-            queryset = queryset.filter(product_item__product__supplier__id=supplier_id_param)
+            queryset = queryset.filter(stock_item__product__supplier__id=supplier_id_param)
 
         return queryset.order_by('id')

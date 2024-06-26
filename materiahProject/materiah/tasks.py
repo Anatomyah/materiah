@@ -2,7 +2,7 @@ from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import ProductOrderStatistics, OrderNotifications, ProductItem, ExpiryNotifications
+from .models import ProductOrderStatistics, OrderNotifications, StockItem, ExpiryNotifications
 from .models.file import FileUploadStatus
 
 
@@ -89,7 +89,7 @@ def create_expiry_notifications():
 
     # Filter the ProductItem to only those items which expiry date precedes the current date or falls within the next
     # six months and do not have an existing expiry notification
-    relevant_stock_items = ProductItem.objects.filter(
+    relevant_stock_items = StockItem.objects.filter(
         (Q(expiry__range=(current_date, expiry_date)) | Q(expiry__lt=current_date)),
         expirynotifications__isnull=True  # Ensure no notification already exists
     )
@@ -97,6 +97,12 @@ def create_expiry_notifications():
     # Iterate through each of the relevant stock items and create expiry notifications
     for item in relevant_stock_items:
         ExpiryNotifications.objects.create(product_item=item)
+
+    # Iterate over the notifications to delete those that the their related product has been deleted
+    expiry_notifications = ExpiryNotifications.objects.all()
+    for expiry_notification in expiry_notifications:
+        if not expiry_notification.product:
+            expiry_notification.delete()
 
 
 def delete_failed_upload_statuses():

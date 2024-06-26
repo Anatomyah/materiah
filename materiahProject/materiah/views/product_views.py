@@ -7,10 +7,35 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
-from ..models import Product, ProductImage, ProductItem
+from ..models import Product, ProductImage, StockItem
 from .permissions import ProfileTypePermission
-from ..serializers.product_serializer import ProductSerializer, ProductItemSerializer
+from ..serializers.product_serializer import ProductSerializer, StockItemSerializer
 from ..s3 import delete_s3_object
+
+
+def create_or_delete_stock_items(product):
+    """
+    Creates or deletes stock items to a product upon updating of that product's stock
+    :param product:
+    :return:
+    """
+    updated_stock = int(product.stock)
+
+    stock_items_set_count = StockItem.objects.filter(product=product).count()
+
+    # If the difference is positive, create stock items accordingly
+    if updated_stock > stock_items_set_count:
+        difference = updated_stock - stock_items_set_count
+        for n in range(0, difference):
+            StockItem.objects.create(product=product)
+
+    # If the difference is negative, delete stock items accordingly
+    if updated_stock < stock_items_set_count:
+        stock_items_set = StockItem.objects.filter(product=product)
+        difference = stock_items_set_count - updated_stock
+        stock_items_to_delete = stock_items_set[:difference]
+        for stock_item in stock_items_to_delete:
+            stock_item.delete()
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -464,12 +489,14 @@ class ProductViewSet(viewsets.ModelViewSet):
 
             # get the Product object using the 'product_id'
             product = Product.objects.get(id=product_id)
-
             # update the product stock
             product.stock = value
 
             # save changes made to the product's stock
             product.save()
+
+            # Crate or delete stock as necessary
+            create_or_delete_stock_items(product)
 
             # return a successful response along with HTTP 200 status code once the product stock is updated
             return Response({"message": f"Updated product {product_id} stock successfully"}, status=status.HTTP_200_OK)
@@ -490,23 +517,56 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         # Create a copy of the request data
         data = request.data.copy()
-
-        # convert empty strings to None to prevent serializer errors
-        if not data['expiry']:
-            data['expiry'] = None
-        if not data['opened_on']:
-            data['opened_on'] = None
+        # Determine if it's a single item or multiple
+        multiple = request.query_params.get('multiple', None) == 'True'
 
         try:
-            # create an instance of the stock item and relating it to the relevant product using that data
-            stock_item = ProductItem.objects.create(**data)
+            product = Product.objects.get(id=data['product_id'])
 
+            serialized_stock_items = None
+            serialized_stock_item = None
+
+            if multiple:
+                stock_items = []
+                for item in data['items']:
+                    if not item['expiry']:
+                        item['expiry'] = None
+                    if not item['opened_on']:
+                        item['opened_on'] = None
+                    # create an instance of the stock item and relating it to the relevant product using that data
+                    stock_items.append(StockItem.objects.create(**item, product_id=data['product_id']))
+
+                # Update product stock accordingly
+                product.stock += len(data['items'])
+
+                # create serializer instances with the newly created stock_item instances
+                serialized_stock_items = StockItemSerializer(stock_items, many=True)
+            else:
+                if not data['expiry']:
+                    data['expiry'] = None
+                if not data['opened_on']:
+                    data['opened_on'] = None
+                # create an instance of the stock item and relating it to the relevant product using that data
+                stock_item = StockItem.objects.create(**data)
+
+                # Update product stock accordingly
+                product.stock += 1
+
+                # create a serializer instance with the newly created stock_item instance
+                serialized_stock_item = StockItemSerializer(stock_item)
+
+            product.save()
             # create a serializer instance with the newly created stock_item instance
-            serializer = ProductItemSerializer(stock_item)
+
+            # determine the response data based on whether multiple items were created or a single item was created
+            response_data = serialized_stock_items.data if multiple else serialized_stock_item.data
+
             # return a successful response along with the stock_item representation and an HTTP 200 status code once the
             # stock item is successfully created
-            return Response({"message": f"Stock item {stock_item.id} created successfully",
-                             'stock_item': serializer.data}, status=status.HTTP_200_OK)
+            return Response({
+                "item(s)": response_data,
+                "message": "Stock item(s) created successfully"
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
             # catch any exceptions, convert the exception to a string, and send an HTTP 500 status code along with
@@ -538,7 +598,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         try:
             # fetch the ProductItem instance matching the item_id and update it's fields with the updated data
-            stock_item = ProductItem.objects.get(id=item_id)
+            stock_item = StockItem.objects.get(id=item_id)
             for key, value in data.items():
                 setattr(stock_item, key, value)
             stock_item.save()
@@ -567,7 +627,15 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         try:
             # fetch and delete that item
-            stock_item = ProductItem.objects.get(id=item_id)
+            stock_item = StockItem.objects.get(id=item_id)
+
+            # Update the product stock accordingly
+            product = Product.objects.get(id=stock_item.product.id)
+            if product.stock > 0:
+                product.stock -= 1
+                product.save()
+
+            # Delete the stock item
             stock_item.delete()
 
             # return a successful response along with HTTP 200 status code once the ProductItem is deleted
@@ -580,12 +648,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['PATCH'])
-    def update_product_item_stock(self, request):
+    def update_stock_item_sub_stock(self, request):
         """
-        This method updates the stock of a product item.
+        This method updates the stock of a stock item.
 
         :param request: The HTTP request object containing the data to update the stock.
-            - item_id: The ID of the product item to update.
+            - item_id: The ID of the stock item to update.
             - updated_stock: The new stock value to update the item with.
 
         :return: A HTTP response object with a success or error message along with an appropriate status code.
@@ -598,12 +666,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         item_id = request.data.get('item_id')
         updated_stock = request.data.get('updated_stock')
         try:
-            # fetch the ProductItem instance matching the item_id and update it's stock
-            stock_item = ProductItem.objects.get(id=item_id)
-            stock_item.item_stock = updated_stock
+            # fetch the StockItem instance matching the item_id and update it's stock
+            stock_item = StockItem.objects.get(id=item_id)
+            stock_item.item_sub_stock = updated_stock
             stock_item.save()
 
-            # return a successful response along with HTTP 200 status code once the ProductItem is updated
+            # return a successful response along with HTTP 200 status code once the StockItem is updated
             return Response({"message": f"Stock item {stock_item.id} updated successfully"},
                             status=status.HTTP_200_OK)
 

@@ -29,7 +29,7 @@ class QuoteItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuoteItem
-        fields = ['id', 'quote', 'product', 'quantity', 'price']
+        fields = ['id', 'quote', 'product', 'quantity', 'price', 'discount', 'currency']
 
 
 class QuoteSerializer(serializers.ModelSerializer):
@@ -90,17 +90,21 @@ class QuoteSerializer(serializers.ModelSerializer):
             # If it is, return a list of serialized data for all QuoteItems for each quote object in the list
             return [QuoteItemSerializer(quote.quoteitem_set.all(), many=True).data for quote in obj]
         else:
-            # If it's not a list, i.e., it's a single object, return serialized data for the QuoteItems of the quote object
+            # If it's not a list, i.e., it's a single object, return serialized data for the QuoteItems
+            # of the quote object
             return QuoteItemSerializer(obj.quoteitem_set.all(), many=True).data
 
     @staticmethod
     def get_status(obj):
         """
-        :param obj: The object for which the status will be retrieved. It can be either a single object or a list of objects.
-        :return: If `obj` is a list, a list of status values is returned, corresponding to each object in the list. If `obj` is a single object, the status value of that object is returned.
+        :param obj: The object for which the status will be retrieved. It can be either a single object or a list of
+         objects.
+        :return: If `obj` is a list, a list of status values is returned, corresponding to each object in the list.
+         If `obj` is a single object, the status value of that object is returned.
 
         .. note::
-           The `get_status_display()` method is assumed to be available on the `obj` object. It is expected to return a human-readable representation of the status.
+           The `get_status_display()` method is assumed to be available on the `obj` object. It is expected to return
+            a human-readable representation of the status.
 
         """
         # Check if the provided object is a list
@@ -256,18 +260,28 @@ class QuoteSerializer(serializers.ModelSerializer):
             # Convert the price and quantity values to appropriate types
             price_as_decimal = Decimal(item_data['price'])
             quantity_as_integer = int(item_data['quantity'])
+            discount_as_decimal = None
+
+            # If a discount value was sent, convert it
+            if item_data['discount']:
+                discount_as_decimal = Decimal(item_data['discount'])
+
             # Flag to track any changes made
             changes = False
 
-            # Try to fetch the QuoteItem
             try:
-                quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
+                # If the current stock item already exists, simply update it
+                if 'quote_item_id' in item_data:
+                    quote_item = QuoteItem.objects.get(id=item_data['quote_item_id'])
+                # If a new stock item was added, create it
+                else:
+                    create_stock_item(item=item_data, quote=instance, manual_creation=True, quote_email_data=None)
             except QuoteItem.DoesNotExist as e:
                 # If a QuoteItem does not exist for the provided id, raise a validation error
                 raise serializers.ValidationError(str(e))
 
             # If the product id for the current quote item differs from the product id in the request
-            if quote_item.product_id != item_data['product']:
+            if 'product' in item_data and quote_item.product_id != item_data['product']:
                 # Check if quote_item price exists
                 if not quote_item.price:
                     revert = False
@@ -282,6 +296,11 @@ class QuoteSerializer(serializers.ModelSerializer):
                 if quote_item.price != price_as_decimal:
                     self.update_price(price=price_as_decimal, product_id=item_data['product'], quote_item=quote_item,
                                       product_changed=True)
+                # If discount in request is different from current quote item discount, update the discount
+                if discount_as_decimal and quote_item.discount != discount_as_decimal:
+                    self.update_discount(discount=discount_as_decimal, product_id=item_data['product'],
+                                         quote_item=quote_item, product_changed=True)
+
                 # Mark changes as true
                 changes = True
             else:
@@ -289,6 +308,13 @@ class QuoteSerializer(serializers.ModelSerializer):
                 if quote_item.price != price_as_decimal:
                     # If price is different, update the price
                     self.update_price(price=price_as_decimal, product_id=item_data['product'], quote_item=quote_item)
+                    # Mark changes as true
+                    changes = True
+
+                # # If discount in request is different from current quote item discount, update the discount
+                if discount_as_decimal and quote_item.discount != discount_as_decimal:
+                    self.update_discount(discount=discount_as_decimal, product_id=item_data['product'],
+                                         quote_item=quote_item)
                     # Mark changes as true
                     changes = True
 
@@ -346,15 +372,14 @@ class QuoteSerializer(serializers.ModelSerializer):
         """
                 Creates a single quote and optionally uploads a file associated with the quote.
 
-                Args:
-                    request_data (dict): A dictionary containing the necessary data to create a quote.
-                                         This should include the supplier ID and associated items.
-                    quote_file_type (str, optional): The type of the quote file to be uploaded. Defaults to None.
-                    manual_creation (bool, optional): A flag indicating whether the quote is being manually created or not (through an automated process such as through a management command).
-                                                      If True, updates the price of the product associated with each quote item. Defaults to False.
+                Args: request_data (dict): A dictionary containing the necessary data to create a quote. This should
+                include the supplier ID and associated items. quote_file_type (str, optional): The type of the quote
+                file to be uploaded. Defaults to None. manual_creation (bool, optional): A flag indicating whether
+                the quote is being manually created or not (through an automated process such as through a management
+                command). If True, updates the price of the product associated with each quote item. Defaults to False.
 
-                Returns:
-                    Quote or dict: The created Quote object and, if a file upload was initiated, the presigned URL information for the upload.
+                Returns: Quote or dict: The created Quote object and, if a file upload was initiated, the presigned
+                URL information for the upload.
 
                 Raises:
                     serializers.ValidationError: If the product with the provided ID does not exist.
@@ -389,34 +414,10 @@ class QuoteSerializer(serializers.ModelSerializer):
             # Create a quote with supplier data
             quote = Quote.objects.create(supplier=supplier)
 
-        # Iterate over each item for quote
-        for item in items:
-            # Fetch the product_id from item
-            product_id = item.pop('product', None)
-            # Fetch the catalog number and product's name for the given product_id
-            cat_num, product_name = Product.objects.filter(id=product_id).values_list('cat_num', 'name').first()
-            # Create a QuoteItem using fetched data
-            QuoteItem.objects.create(quote=quote, product_id=product_id, **item)
-
-            # If it was a manual creation, update the price of the product in database
-            if manual_creation:
-                try:
-                    # Fetch product using product_id
-                    product = Product.objects.get(id=product_id)
-                    # Preserve the current price as previous_price
-                    product.previous_price = product.price
-                    # Update the price of the product
-                    product.price = item['price']
-                    # Save the changes made to the product price
-                    product.save()
-                except Product.DoesNotExist as e:
-                    # If product does not exist in database, raise validation error
-                    raise serializers.ValidationError(str(e))
-
-            if not manual_creation:
-                # Prepare quote data to be sent to supplier via email
-                quote_email_data.append(
-                    {'cat_num': f'{cat_num}', 'name': f'{product_name}', 'quantity': item['quantity']})
+            # Iterate over each item for quote
+            for item in items:
+                create_stock_item(item=item, quote=quote, manual_creation=manual_creation,
+                                  quote_email_data=quote_email_data)
 
         if not manual_creation:
             # Send an email to supplier with quote data
@@ -581,10 +582,12 @@ class QuoteSerializer(serializers.ModelSerializer):
             # If wrong_product doesn't exist, raise a validation error
             raise serializers.ValidationError(str(e))
 
-        # Revert price of the old/wrong product to the previous one
-        wrong_product.price = wrong_product.previous_price
-        # Save changes made to the wrong_product
-        wrong_product.save()
+        if revert:
+            # Revert price of the old/wrong product to the previous one
+            wrong_product.price = wrong_product.previous_price
+            wrong_product.discount = wrong_product.previous_discount
+            # Save changes made to the wrong_product
+            wrong_product.save()
 
         # Update the product associated with the quote_item, regardless of whether the 'revert' flag is set or not
         quote_item.product_id = product_id
@@ -617,11 +620,94 @@ class QuoteSerializer(serializers.ModelSerializer):
         if product_changed:
             # If the product has been changed, assign the current price of the product to previous_price attribute
             product.previous_price = product.price
+            # Same for the discount value
+            product.previous_discount = product.discount
 
-            # Update the price of the product
+        # Update the price of the product
         product.price = price
+
         # Save the changes made to the product instance
         product.save()
 
         # Update the price of the quote item
         quote_item.price = price
+
+    @staticmethod
+    def update_discount(discount, product_id, quote_item, product_changed=False):
+        """
+        Updates the price of a product and a quote item.
+
+        :param discount: The decimal value of the discount
+        :type discount: float
+        :param product_id: The ID of the product to update.
+        :type product_id: int
+        :param quote_item: The quote item to update the price for.
+        :type quote_item: QuoteItem
+        :param product_changed: Indicates whether the product has changed. Default is False.
+        :type product_changed: bool
+        :return: None
+        :rtype: None
+
+        :raises serializers.ValidationError: If the product with the given ID does not exist.
+        """
+        try:
+            # Attempt to retrieve the product object from the database using the provided product_id
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist as e:
+            # If the product doesn't exist in the database, raise a validation error
+            raise serializers.ValidationError(str(e))
+
+        if product_changed:
+            # If the product has been changed, assign the current price of the product to previous_discount attribute
+            # product.previous_discount = product.price
+            pass
+
+        # Update the discount of the product
+        product.discount = discount
+
+        # Save the changes made to the product instance
+        product.save()
+
+        # Update the price of the quote item
+        quote_item.discount = discount
+
+
+def create_stock_item(item, quote, manual_creation, quote_email_data):
+    # Fetch the product_id from item
+    product_id = item.pop('product', None)
+    # Fetch the catalog number and product's name for the given product_id
+    cat_num, product_name = Product.objects.filter(id=product_id).values_list('cat_num', 'name').first()
+    # Create a QuoteItem using fetched data
+
+    if not item['discount']:
+        item['discount'] = None
+
+    QuoteItem.objects.create(quote=quote, product_id=product_id, **item)
+
+    # If it was a manual creation, update the price of the product in database
+    if manual_creation:
+        try:
+            discount_value = item['discount']
+            # Fetch product using product_id
+            product = Product.objects.get(id=product_id)
+            # Preserve the current price as previous_price
+            product.previous_price = product.price
+            product.previous_discount = product.discount
+            # Update the price of the product
+            product.price = item['price']
+            # Save the changes made to the product price
+
+            if discount_value:
+                product.discount_price = item['discount']
+
+            product.currency = item['currency']
+
+            product.save()
+        except Product.DoesNotExist as e:
+            # If product does not exist in database, raise validation error
+            raise serializers.ValidationError(str(e))
+
+    if not manual_creation:
+        # Prepare quote data to be sent to supplier via email
+        quote_email_data.append(
+            {'cat_num': f'{cat_num}', 'name': f'{product_name}', 'quantity': item['quantity']})

@@ -42,7 +42,7 @@ class OrderNotificationSerializer(serializers.ModelSerializer):
 class ExpiryNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpiryNotifications
-        fields = ['id', 'product_item']
+        fields = ['id', 'stock_item']
 
     def to_representation(self, instance):
         """
@@ -53,8 +53,8 @@ class ExpiryNotificationSerializer(serializers.ModelSerializer):
         representation is obtained by calling the `to_representation` method of the parent class (super) and
         modifying it.
 
-        The `product_item` attribute of the instance is extracted and added to the representation.
-        The `product_item` dictionary is updated with the following keys:
+        The `stock_item` attribute of the instance is extracted and added to the representation.
+        The `stock_item` dictionary is updated with the following keys:
         - 'id': the ID of the product item
         - 'batch': the batch of the product item
         - 'in_use': the in use status of the product item
@@ -72,17 +72,17 @@ class ExpiryNotificationSerializer(serializers.ModelSerializer):
         """
         representation = super(ExpiryNotificationSerializer, self).to_representation(instance)
 
-        product_item = instance.product_item
-        representation['product_item'] = {
-            'id': product_item.id, 'batch': product_item.batch, 'in_use': product_item.in_use,
-            'expiry': product_item.expiry,
-            'product': {'id': product_item.product.id, 'name': product_item.product.name,
-                        'cat_num': product_item.product.cat_num, 'supplier': product_item.product.supplier.id},
+        stock_item = instance.stock_item
+        representation['stock_item'] = {
+            'id': stock_item.id, 'batch': stock_item.batch, 'in_use': stock_item.in_use,
+            'expiry': stock_item.expiry,
+            'product': {'id': stock_item.product.id, 'name': stock_item.product.name,
+                        'cat_num': stock_item.product.cat_num, 'supplier': stock_item.product.supplier.id},
         }
 
         # If the product is related to an order, add it to the representation
-        if product_item.order_item:
-            representation['product_item']['order'] = {'id': product_item.order_item.order.id,
-                                                       'received': product_item.order_item.order.arrival_date}
+        if stock_item.order_item:
+            representation['stock_item']['order'] = {'id': stock_item.order_item.order.id,
+                                                     'received': stock_item.order_item.order.arrival_date}
 
         return representation

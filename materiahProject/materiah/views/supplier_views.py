@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .paginator import MateriahPagination
-from ..models import Supplier
+from ..models import Supplier, SupplierSecondaryEmails
 from .permissions import DenySupplierProfile
 from ..serializers.supplier_serializer import SupplierSerializer
 
@@ -292,5 +292,40 @@ class SupplierViewSet(viewsets.ModelViewSet):
 
         except Exception as e:  # If there's an error during the execution
             # Return an error HTTP response with the status code of 500 (Internal Server Error)
+            # and a JSON payload containing the error message
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['GET'])
+    def check_secondary_email(self, request):
+        """
+        Check Email
+
+        Checks if a given secondary supplier email is unique in the database.
+
+        :param request: the HTTP request object
+        :return: a response object with a JSON payload indicating the uniqueness status of the email
+        """
+        try:
+            # Extract the email value from the query parameters in the incoming request
+            entered_email = request.query_params.get('value', None)
+
+            # Check if an instance of Supplier with that email exists in the database,
+            # using a case-insensitive exact match query
+            exists = SupplierSecondaryEmails.objects.filter(email__iexact=entered_email).exists()
+
+            # If such instance does exist
+            if exists:
+                # Return a successful HTTP response with a JSON payload indicating that the email is not unique,
+                # along with a message
+                return Response({"unique": False, "message": "Email already exists"},
+                                status=status.HTTP_200_OK)
+            # If no such instance exists
+            else:
+                # Return a successful HTTP response with a JSON payload indicating that the email is unique,
+                # along with a message
+                return Response({"unique": True, "message": "Email is available"}, status=status.HTTP_200_OK)
+
+        except Exception as e:  # Catch any exceptions that might occur
+            # In case of an error, return an error HTTP response with a status code of 500 (Internal Server Error)
             # and a JSON payload containing the error message
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

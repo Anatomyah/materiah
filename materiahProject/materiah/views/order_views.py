@@ -114,11 +114,11 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns the queryset of all orders, ordered by id.
+        Returns the queryset of all orders, ordered by arrival date.
 
         :return: QuerySet of Order objects
         """
-        return Order.objects.all().order_by('id')
+        return Order.objects.all().order_by('arrival_date')
 
     def create(self, request, *args, **kwargs):
         """

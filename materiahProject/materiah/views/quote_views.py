@@ -123,7 +123,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
             Returns the queryset of all Quote objects, applying filters based on the action.
             For list actions, it applies the 'fulfilled_filter'. For retrieve actions, it returns all quotes.
             """
-        queryset = Quote.objects.all().order_by('id')
+        queryset = Quote.objects.all().order_by('creation_date')
 
         # Apply filters only for list actions
         if self.action == 'list':
